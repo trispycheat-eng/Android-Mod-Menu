@@ -15,6 +15,8 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.text.InputType;
 import android.util.AttributeSet;
@@ -196,7 +198,7 @@ public class MainActivity extends Activity {
     }
 
     private void launchMenuAndGame() {
-        // 1. start floating overlay menu
+        // 1. start the floating overlay menu
         try {
             Main.Start(this);
             Log.i("Trispy", "menu started");
@@ -204,25 +206,28 @@ public class MainActivity extends Activity {
             Log.e("Trispy", "menu failed: " + t.getMessage());
         }
 
-        // 2. launch Free Fire — keep our process alive with moveTaskToBack
-        if (!hasLaunched) {
-            hasLaunched = true;
-            try {
-                Intent i = getPackageManager().getLaunchIntentForPackage(FF_MAX);
-                if (i == null) i = getPackageManager().getLaunchIntentForPackage(FF_NORMAL);
-                if (i != null) {
-                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(i);
-                    moveTaskToBack(true);   // keep process alive -> overlay survives
-                    return;
+        // 2. wait 1.5s so the floating icon renders, THEN launch Free Fire
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override public void run() {
+                if (hasLaunched) return;
+                hasLaunched = true;
+                try {
+                    Intent i = getPackageManager().getLaunchIntentForPackage(FF_MAX);
+                    if (i == null) i = getPackageManager().getLaunchIntentForPackage(FF_NORMAL);
+                    if (i != null) {
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(i);
+                        moveTaskToBack(true);  // keeps process alive so the overlay survives
+                        return;
+                    }
+                    Log.e("Trispy", "FF not installed");
+                } catch (Throwable t) {
+                    Log.e("Trispy", "launch failed: " + t.getMessage());
                 }
-                Log.e("Trispy", "FF not installed");
-            } catch (Throwable t) {
-                Log.e("Trispy", "launch failed: " + t.getMessage());
+                Toast.makeText(MainActivity.this,
+                    "menu started · open FF manually", Toast.LENGTH_LONG).show();
             }
-        }
-
-        Toast.makeText(this, "menu started · open FF manually", Toast.LENGTH_LONG).show();
+        }, 1500);
     }
 
     // ============================================================
@@ -301,4 +306,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-}
+                    }
