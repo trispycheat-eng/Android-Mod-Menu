@@ -10,6 +10,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -22,7 +23,9 @@ import android.text.InputType;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.widget.Button;
@@ -50,6 +53,8 @@ public class MainActivity extends Activity {
     private static final String FF_NORMAL = "com.dts.freefireth";
 
     private TextView statusLine;
+    private WindowManager floatWm;
+    private View floatBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -219,50 +224,113 @@ public class MainActivity extends Activity {
         } catch (Throwable t) {}
     }
 
+    // ============================================================
+    //  Our own floating TRISPY button — guaranteed visible
+    // ============================================================
+    private void addFloatingButton() {
+        if (floatBtn != null) return;
+        try {
+            floatWm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+
+            final TextView btn = new TextView(this);
+            btn.setText("⋆ TRISPY ⋆");
+            btn.setTextColor(Color.parseColor("#FF4500"));
+            btn.setTextSize(15);
+            btn.setTypeface(null, Typeface.BOLD);
+            btn.setBackgroundColor(Color.parseColor("#CC0A0000"));
+            btn.setPadding(40, 30, 40, 30);
+            btn.setShadowLayer(12, 0, 0, Color.parseColor("#FF2200"));
+
+            int type = Build.VERSION.SDK_INT >= 26
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                : WindowManager.LayoutParams.TYPE_PHONE;
+
+            final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                type,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT);
+            lp.gravity = Gravity.TOP | Gravity.LEFT;
+            lp.x = 40;
+            lp.y = 400;
+
+            btn.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    try {
+                        Main.Start(MainActivity.this);
+                    } catch (Throwable t) {
+                        Toast.makeText(MainActivity.this,
+                            "menu: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+
+            btn.setOnTouchListener(new View.OnTouchListener() {
+                int ix, iy;
+                float tx, ty;
+                @Override public boolean onTouch(View v, MotionEvent e) {
+                    switch (e.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            ix = lp.x; iy = lp.y;
+                            tx = e.getRawX(); ty = e.getRawY();
+                            return false;
+                        case MotionEvent.ACTION_MOVE:
+                            lp.x = ix + (int)(e.getRawX() - tx);
+                            lp.y = iy + (int)(e.getRawY() - ty);
+                            try { floatWm.updateViewLayout(v, lp); } catch (Throwable t) {}
+                            return true;
+                    }
+                    return false;
+                }
+            });
+
+            floatWm.addView(btn, lp);
+            floatBtn = btn;
+            Log.i("Trispy", "floating button added");
+        } catch (Throwable t) {
+            Log.e("Trispy", "button failed: " + t.getMessage());
+        }
+    }
+
     private void launchMenuAndGame() {
         showStatus("◇ starting panel...");
 
-        // 1) start foreground service so the overlay survives backgrounding
         try {
             Intent svc = new Intent(this, KeepAliveService.class);
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
             else startService(svc);
-            Log.i("Trispy", "keepalive service started");
         } catch (Throwable t) {
             Log.e("Trispy", "service failed: " + t.getMessage());
         }
 
-        // 2) start the floating menu
         boolean menuOK = false;
         try {
             Main.Start(this);
             menuOK = true;
-            Log.i("Trispy", "menu started");
         } catch (Throwable t) {
             Log.e("Trispy", "menu failed: " + t.getMessage());
             showStatus("✕ menu failed\n" + t.getMessage());
         }
 
+        // our own visible button on top
+        addFloatingButton();
+
         final boolean menuStarted = menuOK;
 
-        // 3) show status messages for ~4 seconds, then launch FF
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override public void run() {
-                if (menuStarted) {
-                    showStatus("❤️‍🩹 • Made With Love");
-                }
+                if (menuStarted) showStatus("❤️‍🩹 • Made With Love");
             }
         }, 700);
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override public void run() {
-                if (menuStarted) {
-                    showStatus("🕷️ • Trispy On Top");
-                }
+                if (menuStarted) showStatus("🕷️ • Trispy On Top");
             }
         }, 2400);
 
-        // 4) launch FF at 4 seconds
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override public void run() {
                 if (hasLaunched) return;
@@ -273,14 +341,12 @@ public class MainActivity extends Activity {
                     if (i != null) {
                         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(i);
-                        moveTaskToBack(true);   // process stays alive → overlay survives
+                        moveTaskToBack(true);
                         return;
                     }
                     showStatus("✕ Free Fire not installed");
-                    Log.e("Trispy", "FF not installed");
                 } catch (Throwable t) {
                     showStatus("✕ launch failed\n" + t.getMessage());
-                    Log.e("Trispy", "launch failed: " + t.getMessage());
                 }
             }
         }, 4000);
@@ -362,4 +428,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-}
+                             }
