@@ -36,7 +36,6 @@ import java.util.Random;
 
 public class MainActivity extends Activity {
 
-    // kept for compatibility with the original menu framework
     public String GameActivity = "com.unity3d.player.UnityPlayerActivity";
     public boolean hasLaunched = false;
 
@@ -197,14 +196,15 @@ public class MainActivity extends Activity {
     }
 
     private void launchMenuAndGame() {
-        // 1. start floating menu overlay
+        // 1. start floating overlay menu
         try {
             Main.Start(this);
+            Log.i("Trispy", "menu started");
         } catch (Throwable t) {
-            Log.e("Trispy", "menu start failed: " + t.getMessage());
+            Log.e("Trispy", "menu failed: " + t.getMessage());
         }
 
-        // 2. launch Free Fire
+        // 2. launch Free Fire — keep our process alive with moveTaskToBack
         if (!hasLaunched) {
             hasLaunched = true;
             try {
@@ -213,7 +213,7 @@ public class MainActivity extends Activity {
                 if (i != null) {
                     i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(i);
-                    finish();
+                    moveTaskToBack(true);   // keep process alive -> overlay survives
                     return;
                 }
                 Log.e("Trispy", "FF not installed");
@@ -301,4 +301,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-                }
+}
