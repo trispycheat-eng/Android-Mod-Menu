@@ -6,11 +6,9 @@
 #include "Includes/obfuscate.h"
 #include "Menu/Menu.hpp"
 
-// This file is intentionally minimal.
-// All features + the Changes() function live in Menu.cpp
-// so they link against Setup.cpp correctly.
+// Main.cpp stays minimal — all features and Changes() live in Menu.cpp
 
 __attribute__((constructor))
 void main_lib() {
-    // nothing here — Menu.cpp handles the real init
+    // nothing here — Menu.cpp handles init
 }
