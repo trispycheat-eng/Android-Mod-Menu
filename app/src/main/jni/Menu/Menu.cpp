@@ -20,7 +20,6 @@
 //  TRISPY CHEATS · t.me/TrispyCheats
 // ============================================================
 
-bool noDeath = false;
 bool aimlockHead = false;
 bool ignoreKnocked = false;
 bool visibleCheck = false;
@@ -32,13 +31,37 @@ bool antiCheat = false;
 int aimFov = 30;
 int espRange = 200;
 int aimSmooth = 5;
-
-struct MemPatches {
-    MemoryPatch noDeathPatch;
-} gPatches;
+bool btnPressed = false;
 
 // ============================================================
-//  FEATURE LIST — buttons in the menu
+//  FRAMEWORK FUNCTIONS (required by Setup.cpp)
+// ============================================================
+
+jobjectArray setText(JNIEnv *env, jobject obj, jstring text) {
+    jobjectArray ret;
+    const char *features[] = {
+        OBFUSCATE("TextView_%s"),
+    };
+    return ret;
+}
+
+jstring Icon(JNIEnv *env, jobject obj) {
+    return env->NewStringUTF(OBFUSCATE(""));
+}
+
+jstring IconWebViewData(JNIEnv *env, jobject obj) {
+    return env->NewStringUTF(OBFUSCATE(""));
+}
+
+jstring SettingsList(JNIEnv *env, jobject obj) {
+    return env->NewStringUTF(OBFUSCATE(""));
+}
+
+void RegisterMenu(JNIEnv *env, jclass clazz, jobject context) {
+}
+
+// ============================================================
+//  FEATURE LIST — what appears in the menu
 // ============================================================
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
@@ -80,39 +103,31 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 }
 
 // ============================================================
-//  BUTTON HANDLER — EXACT 9-param signature Setup.cpp wants
+//  BUTTON HANDLER — 9-parameter signature
 // ============================================================
-bool btnPressed = false;
-
 void Changes(JNIEnv *env, jclass clazz, jobject obj,
              jint featNum, jstring featName, jint value,
              jlong Lvalue, jboolean boolean, jstring jstr) {
-
     switch (featNum) {
-        case 0: break;                    // header
-        case 1: break;                    // Category_AIM
-
+        case 0: break;
+        case 1: break;
         case 2: aimlockHead = boolean; break;
         case 3: aimSmooth = value; break;
         case 4: aimFov = value; break;
         case 5: ignoreKnocked = boolean; break;
         case 6: visibleCheck = boolean; break;
-
-        case 7: break;                    // Category_VISUAL
-
+        case 7: break;
         case 8:  espEnemy = boolean; break;
         case 9:  espGlow = boolean; break;
         case 10: espLine = boolean; break;
         case 11: espBox = boolean; break;
         case 12: espRange = value; break;
-
-        case 13: break;                   // Category_SYSTEM
-
+        case 13: break;
         case 14: antiCheat = boolean; break;
-        case 15: break;                   // Clear Reports
-        case 16: break;                   // Wipe Cache
+        case 15: break;
+        case 16: break;
         case 17: btnPressed = boolean; break;
-        case 18: break;                   // footer
+        case 18: break;
         default: break;
     }
 }
