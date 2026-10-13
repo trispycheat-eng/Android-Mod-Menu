@@ -49,6 +49,8 @@ public class MainActivity extends Activity {
     private static final String FF_MAX = "com.dts.freefiremax";
     private static final String FF_NORMAL = "com.dts.freefireth";
 
+    private TextView statusLine;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -144,6 +146,15 @@ public class MainActivity extends Activity {
         gp.topMargin = 24;
         box.addView(go, gp);
 
+        statusLine = new TextView(this);
+        statusLine.setText("");
+        statusLine.setTextColor(Color.parseColor("#FFDDBB"));
+        statusLine.setTextSize(13);
+        statusLine.setGravity(Gravity.CENTER);
+        statusLine.setPadding(0, 26, 0, 0);
+        statusLine.setAlpha(0f);
+        box.addView(statusLine);
+
         AlphaAnimation pulse = new AlphaAnimation(0.7f, 1f);
         pulse.setDuration(1400);
         pulse.setRepeatMode(Animation.REVERSE);
@@ -197,16 +208,61 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void showStatus(final String text) {
+        try {
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    statusLine.setText(text);
+                    statusLine.animate().alpha(1f).setDuration(300).start();
+                }
+            });
+        } catch (Throwable t) {}
+    }
+
     private void launchMenuAndGame() {
-        // 1. start the floating overlay menu
+        showStatus("◇ starting panel...");
+
+        // 1) start foreground service so the overlay survives backgrounding
+        try {
+            Intent svc = new Intent(this, KeepAliveService.class);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
+            else startService(svc);
+            Log.i("Trispy", "keepalive service started");
+        } catch (Throwable t) {
+            Log.e("Trispy", "service failed: " + t.getMessage());
+        }
+
+        // 2) start the floating menu
+        boolean menuOK = false;
         try {
             Main.Start(this);
+            menuOK = true;
             Log.i("Trispy", "menu started");
         } catch (Throwable t) {
             Log.e("Trispy", "menu failed: " + t.getMessage());
+            showStatus("✕ menu failed\n" + t.getMessage());
         }
 
-        // 2. wait 1.5s so the floating icon renders, THEN launch Free Fire
+        final boolean menuStarted = menuOK;
+
+        // 3) show status messages for ~4 seconds, then launch FF
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override public void run() {
+                if (menuStarted) {
+                    showStatus("❤️‍🩹 • Made With Love");
+                }
+            }
+        }, 700);
+
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override public void run() {
+                if (menuStarted) {
+                    showStatus("🕷️ • Trispy On Top");
+                }
+            }
+        }, 2400);
+
+        // 4) launch FF at 4 seconds
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override public void run() {
                 if (hasLaunched) return;
@@ -217,17 +273,17 @@ public class MainActivity extends Activity {
                     if (i != null) {
                         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(i);
-                        moveTaskToBack(true);  // keeps process alive so the overlay survives
+                        moveTaskToBack(true);   // process stays alive → overlay survives
                         return;
                     }
+                    showStatus("✕ Free Fire not installed");
                     Log.e("Trispy", "FF not installed");
                 } catch (Throwable t) {
+                    showStatus("✕ launch failed\n" + t.getMessage());
                     Log.e("Trispy", "launch failed: " + t.getMessage());
                 }
-                Toast.makeText(MainActivity.this,
-                    "menu started · open FF manually", Toast.LENGTH_LONG).show();
             }
-        }, 1500);
+        }, 4000);
     }
 
     // ============================================================
@@ -306,4 +362,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-                    }
+}
