@@ -34,10 +34,10 @@ int aimSmooth = 5;
 bool btnPressed = false;
 
 // ============================================================
-//  REQUIRED FRAMEWORK FUNCTIONS — exact signatures
+//  REQUIRED FRAMEWORK FUNCTIONS — exact signatures from Menu.hpp
 // ============================================================
-jobjectArray setText(JNIEnv *env, jobject obj, const char *text) {
-    return nullptr;
+void setText(JNIEnv *env, jobject obj, const char *text) {
+    return;
 }
 
 jstring Icon(JNIEnv *env, jobject obj) {
@@ -50,9 +50,6 @@ jstring IconWebViewData(JNIEnv *env, jobject obj) {
 
 jobjectArray SettingsList(JNIEnv *env, jobject obj) {
     return nullptr;
-}
-
-void RegisterMenu(JNIEnv *env, jobject context) {
 }
 
 // ============================================================
