@@ -6,6 +6,8 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
@@ -13,6 +15,7 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Shader;
 import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -53,8 +56,11 @@ public class MainActivity extends Activity {
     private static final String FF_NORMAL = "com.dts.freefireth";
 
     private TextView statusLine;
-    private WindowManager floatWm;
-    private View floatBtn;
+
+    // floating overlay
+    private WindowManager wm;
+    private View logoBtn;
+    private View menuPanel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -225,49 +231,47 @@ public class MainActivity extends Activity {
     }
 
     // ============================================================
-    //  Our own floating TRISPY button — guaranteed visible
+    //  FLOATING LOGO — circular image, drag + tap
     // ============================================================
-    private void addFloatingButton() {
-        if (floatBtn != null) return;
+    private void addFloatingLogo() {
+        if (logoBtn != null) return;
         try {
-            floatWm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+            wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
 
-            final TextView btn = new TextView(this);
-            btn.setText("⋆ TRISPY ⋆");
-            btn.setTextColor(Color.parseColor("#FF4500"));
-            btn.setTextSize(15);
-            btn.setTypeface(null, Typeface.BOLD);
-            btn.setBackgroundColor(Color.parseColor("#CC0A0000"));
-            btn.setPadding(40, 30, 40, 30);
-            btn.setShadowLayer(12, 0, 0, Color.parseColor("#FF2200"));
+            // load logo bitmap from drawable
+            Bitmap bmp = null;
+            try {
+                int id = getResources().getIdentifier("trispy_logo", "drawable", getPackageName());
+                if (id != 0) bmp = BitmapFactory.decodeResource(getResources(), id);
+            } catch (Throwable t) {}
+            if (bmp == null) {
+                try {
+                    android.graphics.drawable.Drawable d = getPackageManager()
+                        .getApplicationIcon(getPackageName());
+                    if (d instanceof BitmapDrawable) bmp = ((BitmapDrawable) d).getBitmap();
+                } catch (Throwable t) {}
+            }
+
+            final CircularLogoView logo = new CircularLogoView(this, bmp);
 
             int type = Build.VERSION.SDK_INT >= 26
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 : WindowManager.LayoutParams.TYPE_PHONE;
 
+            final int size = (int)(getResources().getDisplayMetrics().density * 70); // 70dp
             final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                type,
+                size, size, type,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                     | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.TOP | Gravity.LEFT;
             lp.x = 40;
-            lp.y = 400;
+            lp.y = 350;
 
-            btn.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    try {
-                        Main.Start(MainActivity.this);
-                    } catch (Throwable t) {
-                        Toast.makeText(MainActivity.this,
-                            "menu: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                }
-            });
+            final long[] downTime = {0};
+            final boolean[] dragged = {false};
 
-            btn.setOnTouchListener(new View.OnTouchListener() {
+            logo.setOnTouchListener(new View.OnTouchListener() {
                 int ix, iy;
                 float tx, ty;
                 @Override public boolean onTouch(View v, MotionEvent e) {
@@ -275,23 +279,75 @@ public class MainActivity extends Activity {
                         case MotionEvent.ACTION_DOWN:
                             ix = lp.x; iy = lp.y;
                             tx = e.getRawX(); ty = e.getRawY();
-                            return false;
+                            downTime[0] = System.currentTimeMillis();
+                            dragged[0] = false;
+                            return true;
                         case MotionEvent.ACTION_MOVE:
-                            lp.x = ix + (int)(e.getRawX() - tx);
-                            lp.y = iy + (int)(e.getRawY() - ty);
-                            try { floatWm.updateViewLayout(v, lp); } catch (Throwable t) {}
+                            int dx = (int)(e.getRawX() - tx);
+                            int dy = (int)(e.getRawY() - ty);
+                            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) dragged[0] = true;
+                            lp.x = ix + dx;
+                            lp.y = iy + dy;
+                            try { wm.updateViewLayout(v, lp); } catch (Throwable t) {}
+                            return true;
+                        case MotionEvent.ACTION_UP:
+                            long dur = System.currentTimeMillis() - downTime[0];
+                            if (!dragged[0] && dur < 400) {
+                                toggleMenu();
+                            }
                             return true;
                     }
                     return false;
                 }
             });
 
-            floatWm.addView(btn, lp);
-            floatBtn = btn;
-            Log.i("Trispy", "floating button added");
+            wm.addView(logo, lp);
+            logoBtn = logo;
         } catch (Throwable t) {
-            Log.e("Trispy", "button failed: " + t.getMessage());
+            Log.e("Trispy", "logo failed: " + t.getMessage());
         }
+    }
+
+    private void toggleMenu() {
+        if (menuPanel != null) {
+            hideMenu();
+        } else {
+            showMenu();
+        }
+    }
+
+    private void showMenu() {
+        try {
+            final FloatingMenuView panel = new FloatingMenuView(this, new FloatingMenuView.OnClose() {
+                @Override public void onClose() { hideMenu(); }
+            });
+
+            int type = Build.VERSION.SDK_INT >= 26
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                : WindowManager.LayoutParams.TYPE_PHONE;
+
+            int w = (int)(getResources().getDisplayMetrics().density * 260);
+            WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                w,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                type,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT);
+            lp.gravity = Gravity.CENTER;
+            wm.addView(panel, lp);
+            menuPanel = panel;
+        } catch (Throwable t) {
+            Log.e("Trispy", "menu failed: " + t.getMessage());
+        }
+    }
+
+    private void hideMenu() {
+        try {
+            if (menuPanel != null) {
+                wm.removeView(menuPanel);
+                menuPanel = null;
+            }
+        } catch (Throwable t) {}
     }
 
     private void launchMenuAndGame() {
@@ -305,30 +361,14 @@ public class MainActivity extends Activity {
             Log.e("Trispy", "service failed: " + t.getMessage());
         }
 
-        boolean menuOK = false;
-        try {
-            Main.Start(this);
-            menuOK = true;
-        } catch (Throwable t) {
-            Log.e("Trispy", "menu failed: " + t.getMessage());
-            showStatus("✕ menu failed\n" + t.getMessage());
-        }
-
-        // our own visible button on top
-        addFloatingButton();
-
-        final boolean menuStarted = menuOK;
+        addFloatingLogo();
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() {
-                if (menuStarted) showStatus("❤️‍🩹 • Made With Love");
-            }
+            @Override public void run() { showStatus("❤️‍🩹 • Made With Love"); }
         }, 700);
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() {
-                if (menuStarted) showStatus("🕷️ • Trispy On Top");
-            }
+            @Override public void run() { showStatus("🕷️ • Trispy On Top"); }
         }, 2400);
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
@@ -428,4 +468,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-                             }
+                }
