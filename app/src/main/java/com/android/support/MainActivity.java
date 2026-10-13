@@ -1,47 +1,304 @@
 package com.android.support;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.LinearGradient;
+import android.graphics.Paint;
+import android.graphics.Shader;
+import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.text.InputType;
+import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.View;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.util.ArrayList;
+import java.util.Random;
 
 public class MainActivity extends Activity {
 
-    //Only if you have changed MainActivity to yours and you wanna call game's activity.
+    // kept for compatibility with the original menu framework
     public String GameActivity = "com.unity3d.player.UnityPlayerActivity";
     public boolean hasLaunched = false;
 
-    //To call onCreate, please refer to README.md
+    private static final String PASSWORD = "Trispy";
+    private static final String PREFS = "trispy_prefs";
+    private static final String KEY_SAVED = "saved_pass";
+    private static final String KEY_REMEMBER = "remember";
+    private static final int OVERLAY_REQ = 1002;
+    private static final String FF_MAX = "com.dts.freefiremax";
+    private static final String FF_NORMAL = "com.dts.freefireth";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        /*Thread.setDefaultUncaughtExceptionHandler(
-                new Thread.UncaughtExceptionHandler() {
-                    @Override
-                    public void uncaughtException(Thread thread, Throwable e) {
-                        Log.e("AppCrash", "Error just lunched ");
+
+        FrameLayout root = new FrameLayout(this);
+        root.addView(new HellBackgroundView(this), new FrameLayout.LayoutParams(-1, -1));
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        box.setPadding(70, 0, 70, 0);
+
+        TextView title = new TextView(this);
+        title.setText("⋆ TRISPY ⋆");
+        title.setTextColor(Color.parseColor("#FF4500"));
+        title.setTextSize(34);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        title.setShadowLayer(18, 0, 0, Color.parseColor("#FF2200"));
+        box.addView(title);
+
+        TextView sub = new TextView(this);
+        sub.setText("by TrispyCheats\nt.me/TrispyCheats");
+        sub.setTextColor(Color.parseColor("#CC9966"));
+        sub.setTextSize(13);
+        sub.setGravity(Gravity.CENTER);
+        sub.setPadding(0, 12, 0, 44);
+        box.addView(sub);
+
+        LinearLayout passRow = new LinearLayout(this);
+        passRow.setOrientation(LinearLayout.HORIZONTAL);
+        passRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        final EditText pass = new EditText(this);
+        pass.setHint("password");
+        pass.setHintTextColor(Color.parseColor("#553322"));
+        pass.setTextColor(Color.parseColor("#FFDDBB"));
+        pass.setBackgroundColor(Color.parseColor("#22000000"));
+        pass.setPadding(30, 30, 30, 30);
+        pass.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        pass.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(0, -2, 1f);
+        passRow.addView(pass, plp);
+
+        Button pasteBtn = new Button(this);
+        pasteBtn.setText("📋");
+        pasteBtn.setTextSize(16);
+        pasteBtn.setBackgroundColor(Color.parseColor("#3a0505"));
+        pasteBtn.setTextColor(Color.parseColor("#FFDDBB"));
+        LinearLayout.LayoutParams pasteLp = new LinearLayout.LayoutParams(-2, -2);
+        pasteLp.leftMargin = 10;
+        passRow.addView(pasteBtn, pasteLp);
+        box.addView(passRow);
+
+        pasteBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                try {
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (cm != null && cm.hasPrimaryClip()) {
+                        ClipData cd = cm.getPrimaryClip();
+                        if (cd != null && cd.getItemCount() > 0) {
+                            CharSequence txt = cd.getItemAt(0).coerceToText(MainActivity.this);
+                            pass.setText(txt);
+                            pass.setSelection(pass.getText().length());
+                        }
                     }
-                });*/
+                } catch (Throwable t) {}
+            }
+        });
 
-
-        //To launch game activity
-        if (!hasLaunched) {
+        final SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        final CheckBox remember = new CheckBox(this);
+        remember.setText("Save Login");
+        remember.setTextColor(Color.parseColor("#CC9966"));
+        if (Build.VERSION.SDK_INT >= 21) {
             try {
-                //Start service
-                hasLaunched = true;
-                //Launch mod menu.
-                MainActivity.this.startActivity(new Intent(MainActivity.this, Class.forName(MainActivity.this.GameActivity)));
-                Main.Start(this);
-                return;
-            } catch (ClassNotFoundException e) {
-                Log.e("Mod_menu", "Error. Game's main activity does not exist");
-                //Uncomment this if you are following METHOD 2 to launch menu
-                //Toast.makeText(MainActivity.this, "Error. Game's main activity does not exist", Toast.LENGTH_LONG).show();
+                remember.setButtonTintList(
+                    android.content.res.ColorStateList.valueOf(Color.parseColor("#FF4500")));
+            } catch (Throwable t) {}
+        }
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-2, -2);
+        rlp.topMargin = 14;
+        rlp.gravity = Gravity.CENTER_HORIZONTAL;
+        box.addView(remember, rlp);
+
+        Button go = new Button(this);
+        go.setText("⚔ UNLOCK ⚔");
+        go.setTextColor(Color.parseColor("#FFEECC"));
+        go.setTextSize(16);
+        go.setTypeface(null, Typeface.BOLD);
+        go.setBackgroundColor(Color.parseColor("#3a0505"));
+        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(-1, -2);
+        gp.topMargin = 24;
+        box.addView(go, gp);
+
+        AlphaAnimation pulse = new AlphaAnimation(0.7f, 1f);
+        pulse.setDuration(1400);
+        pulse.setRepeatMode(Animation.REVERSE);
+        pulse.setRepeatCount(Animation.INFINITE);
+        title.startAnimation(pulse);
+
+        if (prefs.getBoolean(KEY_REMEMBER, false)) {
+            remember.setChecked(true);
+            pass.setText(prefs.getString(KEY_SAVED, ""));
+        }
+
+        go.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (!pass.getText().toString().equals(PASSWORD)) {
+                    Toast.makeText(MainActivity.this, "✕ wrong", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (remember.isChecked()) {
+                    prefs.edit().putBoolean(KEY_REMEMBER, true)
+                        .putString(KEY_SAVED, pass.getText().toString()).apply();
+                } else {
+                    prefs.edit().remove(KEY_REMEMBER).remove(KEY_SAVED).apply();
+                }
+                afterUnlock();
+            }
+        });
+
+        root.addView(box);
+        setContentView(root);
+    }
+
+    private void afterUnlock() {
+        if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(this)) {
+            try {
+                startActivityForResult(new Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName())), OVERLAY_REQ);
+            } catch (Throwable t) {
+                launchMenuAndGame();
+            }
+        } else {
+            launchMenuAndGame();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == OVERLAY_REQ) {
+            launchMenuAndGame();
+        }
+    }
+
+    private void launchMenuAndGame() {
+        // 1. start floating menu overlay
+        try {
+            Main.Start(this);
+        } catch (Throwable t) {
+            Log.e("Trispy", "menu start failed: " + t.getMessage());
+        }
+
+        // 2. launch Free Fire
+        if (!hasLaunched) {
+            hasLaunched = true;
+            try {
+                Intent i = getPackageManager().getLaunchIntentForPackage(FF_MAX);
+                if (i == null) i = getPackageManager().getLaunchIntentForPackage(FF_NORMAL);
+                if (i != null) {
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(i);
+                    finish();
+                    return;
+                }
+                Log.e("Trispy", "FF not installed");
+            } catch (Throwable t) {
+                Log.e("Trispy", "launch failed: " + t.getMessage());
             }
         }
 
-        //Launch mod menu.
-       // Main.StartWithoutPermission(this);
-        Main.Start(this);
+        Toast.makeText(this, "menu started · open FF manually", Toast.LENGTH_LONG).show();
     }
-}
+
+    // ============================================================
+    //  ANIMATED HELL BACKGROUND
+    // ============================================================
+    public static class HellBackgroundView extends View {
+
+        private Paint bgPaint, emberPaint, glowPaint;
+        private ArrayList<Ember> embers = new ArrayList<Ember>();
+        private Random rand = new Random();
+        private long lastFrame = 0;
+
+        private class Ember { float x, y, size, speed, alpha; int color; }
+
+        public HellBackgroundView(Context c) { super(c); init(); }
+        public HellBackgroundView(Context c, AttributeSet a) { super(c, a); init(); }
+
+        private void init() {
+            bgPaint = new Paint();
+            emberPaint = new Paint(); emberPaint.setAntiAlias(true);
+            glowPaint = new Paint(); glowPaint.setAntiAlias(true);
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        }
+
+        private Ember newEmber(boolean randY) {
+            Ember e = new Ember();
+            int w = Math.max(getWidth(), 1), h = Math.max(getHeight(), 1);
+            e.x = rand.nextFloat() * w;
+            e.y = randY ? rand.nextFloat() * h : h + 10;
+            e.size = 1f + rand.nextFloat() * 3.5f;
+            e.speed = 0.4f + rand.nextFloat() * 2.4f;
+            e.alpha = 60 + rand.nextInt(170);
+            int[] cols = {0xFFFF4500, 0xFFFF6600, 0xFFFF2200, 0xFFFFAA00, 0xFFFF8800};
+            e.color = cols[rand.nextInt(cols.length)];
+            return e;
+        }
+
+        @Override
+        protected void onSizeChanged(int w, int h, int ow, int oh) {
+            super.onSizeChanged(w, h, ow, oh);
+            try {
+                bgPaint.setShader(new LinearGradient(0, 0, 0, h,
+                    new int[]{Color.parseColor("#050000"), Color.parseColor("#1a0000"),
+                               Color.parseColor("#3a0505"), Color.parseColor("#0a0000")},
+                    new float[]{0f, 0.4f, 0.75f, 1f}, Shader.TileMode.CLAMP));
+            } catch (Throwable t) {}
+            embers.clear();
+            for (int i = 0; i < 70; i++) embers.add(newEmber(true));
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            int w = getWidth(), h = getHeight();
+            if (w == 0 || h == 0) return;
+            canvas.drawRect(0, 0, w, h, bgPaint);
+
+            long now = System.currentTimeMillis();
+            float dt = lastFrame == 0 ? 1f : Math.min(2.5f, (now - lastFrame) / 16f);
+            lastFrame = now;
+
+            for (int i = 0; i < embers.size(); i++) {
+                Ember e = embers.get(i);
+                e.y -= e.speed * dt;
+                e.x += (float)Math.sin((e.y + i * 9) * 0.015) * 0.7f;
+                e.alpha -= 0.35f * dt;
+                if (e.y < -20 || e.alpha <= 0) { embers.set(i, newEmber(false)); continue; }
+
+                glowPaint.setColor(e.color);
+                glowPaint.setAlpha((int)Math.max(0, e.alpha * 0.25f));
+                canvas.drawCircle(e.x, e.y, e.size * 3.2f, glowPaint);
+
+                emberPaint.setColor(e.color);
+                emberPaint.setAlpha((int)Math.max(0, e.alpha));
+                canvas.drawCircle(e.x, e.y, e.size, emberPaint);
+            }
+            invalidate();
+        }
+    }
+                }
