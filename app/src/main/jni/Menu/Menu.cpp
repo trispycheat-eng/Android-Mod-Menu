@@ -34,34 +34,29 @@ int aimSmooth = 5;
 bool btnPressed = false;
 
 // ============================================================
-//  FRAMEWORK FUNCTIONS (required by Setup.cpp)
+//  REQUIRED FRAMEWORK FUNCTIONS — exact signatures
 // ============================================================
-
-jobjectArray setText(JNIEnv *env, jobject obj, jstring text) {
-    jobjectArray ret;
-    const char *features[] = {
-        OBFUSCATE("TextView_%s"),
-    };
-    return ret;
+jobjectArray setText(JNIEnv *env, jobject obj, const char *text) {
+    return nullptr;
 }
 
 jstring Icon(JNIEnv *env, jobject obj) {
-    return env->NewStringUTF(OBFUSCATE(""));
+    return env->NewStringUTF("");
 }
 
 jstring IconWebViewData(JNIEnv *env, jobject obj) {
-    return env->NewStringUTF(OBFUSCATE(""));
+    return env->NewStringUTF("");
 }
 
-jstring SettingsList(JNIEnv *env, jobject obj) {
-    return env->NewStringUTF(OBFUSCATE(""));
+jobjectArray SettingsList(JNIEnv *env, jobject obj) {
+    return nullptr;
 }
 
-void RegisterMenu(JNIEnv *env, jclass clazz, jobject context) {
+void RegisterMenu(JNIEnv *env, jobject context) {
 }
 
 // ============================================================
-//  FEATURE LIST — what appears in the menu
+//  FEATURE LIST
 // ============================================================
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
@@ -103,7 +98,7 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 }
 
 // ============================================================
-//  BUTTON HANDLER — 9-parameter signature
+//  BUTTON HANDLER
 // ============================================================
 void Changes(JNIEnv *env, jclass clazz, jobject obj,
              jint featNum, jstring featName, jint value,
