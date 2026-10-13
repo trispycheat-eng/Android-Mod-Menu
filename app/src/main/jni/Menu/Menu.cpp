@@ -16,61 +16,58 @@
 #include "Menu/Jni.hpp"
 #include "Includes/Macros.h"
 
-bool noDeath;
-int scoreMul = 1, coinsMul = 1;
+// ============================================================
+//  TRISPY CHEATS · t.me/TrispyCheats
+// ============================================================
+
+bool noDeath = false;
+bool aimlockHead = false;
+bool ignoreKnocked = false;
+bool visibleCheck = false;
+bool espEnemy = false;
+bool espGlow = false;
+bool espLine = false;
+bool espBox = false;
+bool antiCheat = false;
+int aimFov = 30;
+int espRange = 200;
+int aimSmooth = 5;
 
 struct MemPatches {
-    MemoryPatch noDeath;
+    MemoryPatch noDeathPatch;
 } gPatches;
 
 // ============================================================
-//  TRISPY CHEATS · t.me/TrispyCheats
+//  FEATURE LIST — buttons in the menu
 // ============================================================
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
 
     const char *features[] = {
 
-        // ── ANIMATED HEADER ──
-        OBFUSCATE("RichWebView_html=<html><head><style>"
-            "@keyframes glow{0%{text-shadow:0 0 8px #ff2200,0 0 16px #ff4500;}50%{text-shadow:0 0 22px #ff6600,0 0 44px #ff4500;}100%{text-shadow:0 0 8px #ff2200,0 0 16px #ff4500;}}"
-            "@keyframes flick{0%,100%{opacity:1;}47%{opacity:1;}50%{opacity:0.55;}53%{opacity:1;}}"
-            "body{background:#0a0000;margin:0;padding:14px 8px;font-family:sans-serif;}"
-            ".h{color:#ff4500;font-size:24px;font-weight:bold;text-align:center;animation:glow 1.8s infinite,flick 3.2s infinite;letter-spacing:4px;}"
-            ".sub{color:#cc9966;font-size:11px;text-align:center;margin-top:6px;letter-spacing:2px;}"
-            ".line{height:1px;background:linear-gradient(90deg,transparent,#ff4500,transparent);margin:10px 0;}"
-            "</style></head><body>"
-            "<div class='h'>&#9733; TRISPY &#9733;</div>"
-            "<div class='line'></div>"
-            "<div class='sub'>by TrispyCheats</div>"
-            "<div class='sub'>t.me/TrispyCheats</div>"
-            "</body></html>"),
+        OBFUSCATE("RichWebView_html=<html><head><meta name='viewport' content='width=device-width,initial-scale=1'><style>@keyframes glow{0%{text-shadow:0 0 8px #ff2200,0 0 16px #ff4500;}50%{text-shadow:0 0 22px #ff6600,0 0 44px #ff4500;}100%{text-shadow:0 0 8px #ff2200,0 0 16px #ff4500;}}@keyframes flick{0%,100%{opacity:1;}47%{opacity:1;}50%{opacity:0.55;}53%{opacity:1;}}body{background:#0a0000;margin:0;padding:14px 8px;font-family:sans-serif;}.h{color:#ff4500;font-size:22px;font-weight:bold;text-align:center;animation:glow 1.8s infinite,flick 3.2s infinite;letter-spacing:3px;}.sub{color:#cc9966;font-size:10px;text-align:center;margin-top:5px;letter-spacing:2px;}.line{height:1px;background:linear-gradient(90deg,transparent,#ff4500,transparent);margin:8px 0;}</style></head><body><div class='h'>&#9733; TRISPY &#9733;</div><div class='line'></div><div class='sub'>by TrispyCheats</div><div class='sub'>t.me/TrispyCheats</div></body></html>"),
 
-        // ── AIM ──
         OBFUSCATE("Category_AIM"),
         OBFUSCATE("Toggle_Aimlock Head"),
-        OBFUSCATE("Toggle_Aimlock Smooth"),
+        OBFUSCATE("SeekBar_Aim Smooth_1_20"),
         OBFUSCATE("SeekBar_Aim FOV_1_360"),
         OBFUSCATE("Toggle_Ignore Knocked"),
-        OBFUSCATE("Toggle_Visible Check"),
+        OBFUSCATE("Toggle_Visible Check Only"),
 
-        // ── VISUAL ──
         OBFUSCATE("Category_VISUAL"),
         OBFUSCATE("Toggle_ESP Enemy"),
         OBFUSCATE("Toggle_ESP Glow"),
         OBFUSCATE("Toggle_ESP Line"),
         OBFUSCATE("Toggle_ESP Box"),
-        OBFUSCATE("SeekBar_ESP Range_1_500"),
+        OBFUSCATE("SeekBar_ESP Range_1_1000"),
 
-        // ── SYSTEM ──
         OBFUSCATE("Category_SYSTEM"),
+        OBFUSCATE("Toggle_Anti-Cheat Bypass"),
         OBFUSCATE("Button_Clear Reports"),
         OBFUSCATE("Button_Wipe Cache"),
-        OBFUSCATE("Toggle_Anti-Cheat Bypass"),
         OBFUSCATE("Button_STOP & WIPE"),
 
-        // ── FOOTER ──
-        OBFUSCATE("RichTextView_&#9733; t.me/TrispyCheats &#9733;"),
+        OBFUSCATE("RichTextView_<div style='text-align:center;color:#cc9966;font-size:11px;letter-spacing:2px;'>v1.0 · t.me/TrispyCheats</div>"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -83,62 +80,45 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 }
 
 // ============================================================
-//  BUTTON LOGIC — signature MUST match Setup.cpp
-//  (JNIEnv*, jclass, jobject, jint, jstring, jint, jlong, jboolean, jstring)
+//  BUTTON HANDLER — EXACT 9-param signature Setup.cpp wants
 // ============================================================
 bool btnPressed = false;
 
 void Changes(JNIEnv *env, jclass clazz, jobject obj,
              jint featNum, jstring featName, jint value,
-             jlong jl, jboolean boolean, jstring jstr) {
+             jlong Lvalue, jboolean boolean, jstring jstr) {
 
     switch (featNum) {
-        // ── header RichWebView is index 0, ignored ──
-        case 1:  // Category_AIM (not interactive)
-        case 6:  // Category_VISUAL
-        case 12: // Category_SYSTEM
-            break;
+        case 0: break;                    // header
+        case 1: break;                    // Category_AIM
 
-        case 2:  // Aimlock Head
-            if (boolean) { /* hook aim to head */ }
-            break;
-        case 3:  // Aimlock Smooth
-            break;
-        case 4:  // Aim FOV slider
-            // value = 1..360
-            break;
-        case 5:  // Ignore Knocked
-            break;
+        case 2: aimlockHead = boolean; break;
+        case 3: aimSmooth = value; break;
+        case 4: aimFov = value; break;
+        case 5: ignoreKnocked = boolean; break;
+        case 6: visibleCheck = boolean; break;
 
-        case 7:  // ESP Enemy
-            break;
-        case 8:  // ESP Glow
-            break;
-        case 9:  // ESP Line
-            break;
-        case 10: // ESP Box
-            break;
-        case 11: // ESP Range slider
-            break;
+        case 7: break;                    // Category_VISUAL
 
-        case 13: // Clear Reports
-            if (boolean || btnPressed) { /* clear */ }
-            break;
-        case 14: // Wipe Cache
-            break;
-        case 15: // Anti-Cheat Bypass
-            break;
-        case 16: // STOP & WIPE
-            btnPressed = true;
-            break;
+        case 8:  espEnemy = boolean; break;
+        case 9:  espGlow = boolean; break;
+        case 10: espLine = boolean; break;
+        case 11: espBox = boolean; break;
+        case 12: espRange = value; break;
 
-        default:
-            break;
+        case 13: break;                   // Category_SYSTEM
+
+        case 14: antiCheat = boolean; break;
+        case 15: break;                   // Clear Reports
+        case 16: break;                   // Wipe Cache
+        case 17: btnPressed = boolean; break;
+        case 18: break;                   // footer
+        default: break;
     }
 }
 
 // ============================================================
-//  NATIVE HOOKS (fill offsets later)
+//  HOOK THREAD
 // ============================================================
 void (*old_Update)(void *instance);
 void Update(void *instance) {
@@ -148,38 +128,16 @@ void Update(void *instance) {
     return old_Update(instance);
 }
 
-void (*old_AddScore)(void *instance, int score);
-void AddScore(void *instance, int score) {
-    if (instance != nullptr && scoreMul != 1)
-        return old_AddScore(instance, score * scoreMul);
-    return old_AddScore(instance, score);
-}
-
-void (*old_AddCoins)(void *instance, int count);
-void AddCoins(void *instance, int count) {
-    if (instance != nullptr && coinsMul != 1)
-        return old_AddCoins(instance, count * coinsMul);
-    return old_AddCoins(instance, count);
-}
-
-// ============================================================
-//  HOOK THREAD
-// ============================================================
 #define targetLibName OBFUSCATE("libil2cpp.so")
 ElfScanner g_il2cppELF;
 
 void *hack_thread(void *) {
     LOGI(OBFUSCATE("trispy hook thread started"));
-
     do { sleep(1); } while (!isLibraryLoaded(targetLibName));
-
-    LOGI(OBFUSCATE("%s has been loaded"), (const char *) targetLibName);
-
+    LOGI(OBFUSCATE("%s loaded"), (const char *) targetLibName);
 #if defined(__aarch64__)
     uintptr_t il2cppBase = g_il2cppELF.base();
-    // HOOK(targetLibName, str2offset(OBFUSCATE("0xOFFSET")), AddScore, old_AddScore);
 #endif
-
     LOGI(OBFUSCATE("trispy hook thread done"));
     return nullptr;
 }
