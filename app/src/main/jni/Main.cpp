@@ -1,10 +1,9 @@
 #include <list>
 #include <vector>
-#include <cstring>
+#include <string>
 #include <pthread.h>
 #include <thread>
 #include <cstring>
-#include <string>
 #include <jni.h>
 #include <unistd.h>
 #include <fstream>
@@ -21,115 +20,132 @@ bool noDeath;
 int scoreMul = 1, coinsMul = 1;
 
 struct MemPatches {
-    // let's assume we have patches for these functions for whatever game
-    // boolean get_canShoot() function
     MemoryPatch noDeath;
-    // etc...
+    // add more patches here
 } gPatches;
 
-// Do not change or translate the first text unless you know what you are doing
-// Assigning feature numbers is optional. Without it, it will automatically count for you, starting from 0
-// Assigned feature numbers can be like any numbers 1,3,200,10... instead in order 0,1,2,3,4,5...
-// ButtonLink, Category, RichTextView and RichWebView is not counted. They can't have feature number assigned
-// Toggle, ButtonOnOff and Checkbox can be switched on by default, if you add True_. Example: CheckBox_True_The Check Box
-// To learn HTML, go to this page: https://www.w3schools.com/
-
+// ============================================================
+//  TRISPY CHEATS · t.me/TrispyCheats
+//  Feature List — edit names here to change buttons
+// ============================================================
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
 
     const char *features[] = {
-            OBFUSCATE("Toggle_No death"),
-            OBFUSCATE("Button_Start Invcibility (30 sec duration)"),
-            OBFUSCATE("SeekBar_Score multiplier_1_100"),
-            OBFUSCATE("SeekBar_Coins multiplier_1_1000"),
-            OBFUSCATE("Category_Examples"), //Not counted
-            OBFUSCATE("Toggle_The toggle"),
-            OBFUSCATE(
-                    "100_Toggle_True_The toggle 2"), //This one have feature number assigned, and switched on by default
-            OBFUSCATE("110_Toggle_The toggle 3"), //This one too
-            OBFUSCATE("SeekBar_The slider_1_100"),
-            OBFUSCATE("SeekBar_Kittymemory slider example_1_5"),
-            OBFUSCATE("Spinner_The spinner_Items 1,Items 2,Items 3"),
-            OBFUSCATE("Button_The button"),
-            OBFUSCATE("ButtonLink_The button with link_https://www.youtube.com/"), //Not counted
-            OBFUSCATE("ButtonOnOff_The On/Off button"),
-            OBFUSCATE("CheckBox_The Check Box"),
-            OBFUSCATE("InputValue_Input number"),
-            OBFUSCATE("InputValue_1000_Input number 2"), //Max value
-			OBFUSCATE("1111_InputLValue_Input long number"),
-            OBFUSCATE("InputLValue_1000000000000_Input long number 2"), //Max value
-            OBFUSCATE("InputText_Input text"),
-            OBFUSCATE("RadioButton_Radio buttons_OFF,Mod 1,Mod 2,Mod 3"),
 
-            //Create new collapse
-            OBFUSCATE("Collapse_Collapse 1"),
-            OBFUSCATE("CollapseAdd_Toggle_The toggle"),
-            OBFUSCATE("CollapseAdd_Toggle_The toggle"),
-            OBFUSCATE("123_CollapseAdd_Toggle_The toggle"),
-            OBFUSCATE("122_CollapseAdd_CheckBox_Check box"),
-            OBFUSCATE("CollapseAdd_Button_The button"),
+        // ── ANIMATED HEADER ──
+        OBFUSCATE("RichWebView_html=<html><head><style>"
+            "@keyframes glow{0%{text-shadow:0 0 8px #ff2200,0 0 16px #ff4500;}50%{text-shadow:0 0 22px #ff6600,0 0 44px #ff4500;}100%{text-shadow:0 0 8px #ff2200,0 0 16px #ff4500;}}"
+            "@keyframes flick{0%,100%{opacity:1;}47%{opacity:1;}50%{opacity:0.55;}53%{opacity:1;}}"
+            "body{background:#0a0000;margin:0;padding:14px 8px 14px 8px;font-family:sans-serif;}"
+            ".h{color:#ff4500;font-size:24px;font-weight:bold;text-align:center;animation:glow 1.8s infinite,flick 3.2s infinite;letter-spacing:4px;}"
+            ".sub{color:#cc9966;font-size:11px;text-align:center;margin-top:6px;letter-spacing:2px;}"
+            ".line{height:1px;background:linear-gradient(90deg,transparent,#ff4500,transparent);margin:10px 0;}"
+            "</style></head><body>"
+            "<div class='h'>&#9733; TRISPY &#9733;</div>"
+            "<div class='line'></div>"
+            "<div class='sub'>by TrispyCheats</div>"
+            "<div class='sub'>t.me/TrispyCheats</div>"
+            "</body></html>"),
 
-            //Create new collapse again
-            OBFUSCATE("Collapse_Collapse 2_True"),
-            OBFUSCATE("CollapseAdd_SeekBar_The slider_1_100"),
-            OBFUSCATE("CollapseAdd_InputValue_Input number"),
+        // ── AIM ──
+        OBFUSCATE("Category_AIM"),
+        OBFUSCATE("Toggle_Aimlock Head"),
+        OBFUSCATE("Toggle_Aimlock Smooth"),
+        OBFUSCATE("SeekBar_Aim FOV_1_360"),
+        OBFUSCATE("Toggle_Ignore Knocked"),
+        OBFUSCATE("Toggle_Visible Check"),
 
-            OBFUSCATE("RichTextView_This is text view, not fully HTML."
-                      "<b>Bold</b> <i>italic</i> <u>underline</u>"
-                      "<br />New line <font color='red'>Support colors</font>"
-                      "<br/><big>bigger Text</big>"),
-            OBFUSCATE("RichWebView_<html><head><style>body{color: white;}</style></head><body>"
-                      "This is WebView, with REAL HTML support!"
-                      "<div style=\"background-color: darkblue; text-align: center;\">Support CSS</div>"
-                      "<marquee style=\"color: green; font-weight:bold;\" direction=\"left\" scrollamount=\"5\" behavior=\"scroll\">This is <u>scrollable</u> text</marquee>"
-                      "</body></html>")
+        // ── VISUAL ──
+        OBFUSCATE("Category_VISUAL"),
+        OBFUSCATE("Toggle_ESP Enemy"),
+        OBFUSCATE("Toggle_ESP Glow"),
+        OBFUSCATE("Toggle_ESP Line"),
+        OBFUSCATE("Toggle_ESP Box"),
+        OBFUSCATE("SeekBar_ESP Range_1_500"),
+
+        // ── SYSTEM ──
+        OBFUSCATE("Category_SYSTEM"),
+        OBFUSCATE("Button_Clear Reports"),
+        OBFUSCATE("Button_Wipe Cache"),
+        OBFUSCATE("Toggle_Anti-Cheat Bypass"),
+        OBFUSCATE("Button_STOP & WIPE"),
+
+        // ── FOOTER ──
+        OBFUSCATE("RichTextView_&#9733; t.me/TrispyCheats &#9733;"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
     ret = (jobjectArray)
-            env->NewObjectArray(Total_Feature, env->FindClass(OBFUSCATE("java/lang/String")),
-                                env->NewStringUTF(""));
-
+        env->NewObjectArray(Total_Feature, env->FindClass(OBFUSCATE("java/lang/String")),
+                            env->NewStringUTF(""));
     for (int i = 0; i < Total_Feature; i++)
         env->SetObjectArrayElement(ret, i, env->NewStringUTF(features[i]));
-
-    return (ret);
+    return ret;
 }
 
+// ============================================================
+//  BUTTON LOGIC — runs when you tap a feature
+// ============================================================
 bool btnPressed = false;
 
-void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featName, jint value, jlong Lvalue, jboolean boolean, jstring text) {
-
+void Changes(JNIEnv *env, jclass clazz, jobject obj, jint featNum, jstring featName,
+             jint value, jboolean boolean, jstring jstr, jint i, jlong jl, jboolean b) {
     switch (featNum) {
-        case 0:
-        {
-            if (boolean)
-                gPatches.noDeath.Modify();
-            else
-                gPatches.noDeath.Restore();
+        case 0:  // Aimlock Head toggle
+            if (boolean) {
+                // TODO: hook aim to head
+            }
             break;
-        }
-        case 1:
+        case 1:  // Aimlock Smooth toggle
+            if (boolean) {
+                // TODO: enable smoothing
+            }
+            break;
+        case 2:  // Aim FOV slider
+            // TODO: set FOV = value
+            break;
+        case 3:  // Ignore Knocked
+            break;
+        case 4:  // Visible Check
+            break;
+        case 5:  // ESP Enemy
+            if (boolean) {
+                // TODO: enable ESP
+            }
+            break;
+        case 6:  // ESP Glow
+            break;
+        case 7:  // ESP Line
+            break;
+        case 8:  // ESP Box
+            break;
+        case 9:  // ESP Range
+            break;
+        case 10: // Clear Reports
+            if (boolean || btnPressed) {
+                // TODO: clear reports
+            }
+            break;
+        case 11: // Wipe Cache
+            break;
+        case 12: // Anti-Cheat Bypass
+            break;
+        case 13: // STOP & WIPE
             btnPressed = true;
-            break;
-        case 2:
-            scoreMul = value;
-            break;
-        case 3:
-            coinsMul = value;
+            // TODO: self-destruct
             break;
     }
 }
 
-//CharacterPlayer
-void (*StartInvcibility)(void *instance, float duration);
-
+// ============================================================
+//  NATIVE HOOKS (advanced — leave for later)
+// ============================================================
 void (*old_Update)(void *instance);
-
 void Update(void *instance) {
     if (instance != nullptr) {
         if (btnPressed) {
-            StartInvcibility(instance, 30);
+            // example: some action once
             btnPressed = false;
         }
     }
@@ -138,69 +154,52 @@ void Update(void *instance) {
 
 void (*old_AddScore)(void *instance, int score);
 void AddScore(void *instance, int score) {
-    return old_AddScore(instance, score * scoreMul);
+    if (instance != nullptr && scoreMul != 1) {
+        return old_AddScore(instance, score * scoreMul);
+    }
+    return old_AddScore(instance, score);
 }
 
 void (*old_AddCoins)(void *instance, int count);
 void AddCoins(void *instance, int count) {
-    return old_AddCoins(instance, count * coinsMul);
+    if (instance != nullptr && coinsMul != 1) {
+        return old_AddCoins(instance, count * coinsMul);
+    }
+    return old_AddCoins(instance, count);
 }
 
-//Target lib here
+// ============================================================
+//  MAIN HOOK THREAD — attaches to libil2cpp.so
+// ============================================================
 #define targetLibName OBFUSCATE("libil2cpp.so")
-
 ElfScanner g_il2cppELF;
 
-// we will run our hacks in a new thread so our while loop doesn't block process main thread
 void *hack_thread(void *) {
-    LOGI(OBFUSCATE("pthread created"));
-
-    //Check if target lib is loaded
-    /*do {
-        sleep(1);
-    } while (!isLibraryLoaded(targetLibName));*/
+    LOGI(OBFUSCATE("trispy hook thread started"));
 
     do {
         sleep(1);
-        // getElfBaseMap can also find lib base even if it was loaded from zipped base.apk
-        g_il2cppELF = ElfScanner::createWithPath(targetLibName);
-    } while (!g_il2cppELF.isValid());
+    } while (!isLibraryLoaded(targetLibName));
 
     LOGI(OBFUSCATE("%s has been loaded"), (const char *) targetLibName);
 
 #if defined(__aarch64__)
     uintptr_t il2cppBase = g_il2cppELF.base();
-
-    //Il2Cpp: Use RVA offset
-    StartInvcibility = (void (*)(void *, float)) getAbsoluteAddress(targetLibName, str2Offset(
-            OBFUSCATE("0x107A3BC")));
-
-    HOOK(targetLibName, str2Offset(OBFUSCATE("0x107A2E0")), AddScore, old_AddScore);
-    HOOK(targetLibName, str2Offset(OBFUSCATE("0x107A2FC")), AddCoins, old_AddCoins);
-    HOOK(targetLibName, str2Offset(OBFUSCATE("0x1078C44")), Update, old_Update);
-
-    gPatches.noDeath = MemoryPatch::createWithHex(il2cppBase + str2Offset(OBFUSCATE("0x1079728")), "C0 03 5F D6");
-
-    //HOOK(targetLibName, str2Offset(OBFUSCATE("0x1079728")), Kill, old_Kill);
-
-    //PATCH(targetLibName, str2Offset("0x10709AC"), "E05F40B2 C0035FD6");
-    //HOOK(OBFUSCATE("libFileB.so"), str2Offset(OBFUSCATE("0x123456")), FunctionExample, old_FunctionExample);
-    //HOOK("libFileB.so", 4646464, FunctionExample, old_FunctionExample);
-    //HOOK_NO_ORIG("libFileC.so", str2Offset("0x123456"), FunctionExample);
-    //HOOKSYM("libFileB.so", "__SymbolNameExample", FunctionExample, old_FunctionExample);
-    //HOOKSYM_NO_ORIG("libFileB.so", "__SymbolNameExample", FunctionExample);
-
+    // Example: RVAs. Replace with real offsets once you find them.
+    // StartInvincibility = (void (*)(void *, float)) getAbsoluteAddress(targetLibName, 0x107A3BC);
+    // HOOK(targetLibName, str2offset(OBFUSCATE("0x107A2E0")), AddScore, old_AddScore);
+    // HOOK(targetLibName, str2offset(OBFUSCATE("0x107A2FC")), AddCoins, old_AddCoins);
+    // HOOK(targetLibName, str2offset(OBFUSCATE("0x1078C44")), Update, old_Update);
 #elif defined(__arm__)
-    //Put your code here if you want the code to be compiled for armv7 only
+    // arm (32-bit) offsets go here
 #endif
 
-    LOGI(OBFUSCATE("Done"));
+    LOGI(OBFUSCATE("trispy hook thread done"));
     return nullptr;
 }
 
 __attribute__((constructor))
 void lib_main() {
-    // Create a new thread so it does not block the main thread, means the game would not freeze
     pthread_t ptid;
     pthread_create(&ptid, NULL, hack_thread, NULL);
 }
