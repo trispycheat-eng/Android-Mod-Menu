@@ -9,6 +9,8 @@
 #include <fstream>
 #include <iostream>
 #include <dlfcn.h>
+#include <signal.h>
+#include <sys/types.h>
 #include "Includes/Logger.h"
 #include "Includes/obfuscate.h"
 #include "Includes/Utils.hpp"
@@ -33,57 +35,96 @@ int espRange = 200;
 int aimSmooth = 5;
 bool btnPressed = false;
 
-// external patch function (lives in KittyMemoryPatch.cpp)
 extern void applyPatches();
 
 // ============================================================
-// REQUIRED FRAMEWORK FUNCTIONS - exact signatures from Menu.hpp
+// ACTION FUNCTIONS (for buttons)
 // ============================================================
-
-void setText(JNIEnv *env, jobject obj, const char *text) {
-    return;
+static void doClearReports() {
+    LOGI(OBFUSCATE("clearing reports..."));
+    // kill any report writers, delete report/crash folders in our process space
+    system("rm -rf /data/data/com.dts.freefireth/files/report* 2>/dev/null");
+    system("rm -rf /data/data/com.dts.freefireth/files/crash* 2>/dev/null");
+    system("rm -rf /data/data/com.dts.freefiremax/files/report* 2>/dev/null");
+    system("rm -rf /sdcard/Android/data/com.dts.freefireth/files/report* 2>/dev/null");
+    system("rm -rf /sdcard/Android/data/com.dts.freefiremax/files/report* 2>/dev/null");
+    LOGI(OBFUSCATE("reports cleared"));
 }
 
-jstring Icon(JNIEnv *env, jobject obj) {
-    return env->NewStringUTF("");
+static void doWipeCache() {
+    LOGI(OBFUSCATE("wiping cache..."));
+    system("rm -rf /data/data/com.dts.freefireth/cache/* 2>/dev/null");
+    system("rm -rf /data/data/com.dts.freefiremax/cache/* 2>/dev/null");
+    system("rm -rf /sdcard/Android/data/com.dts.freefireth/cache/* 2>/dev/null");
+    system("rm -rf /sdcard/Android/data/com.dts.freefiremax/cache/* 2>/dev/null");
+    LOGI(OBFUSCATE("cache wiped"));
 }
 
-jstring IconWebViewData(JNIEnv *env, jobject obj) {
-    return env->NewStringUTF("");
-}
-
-jobjectArray SettingsList(JNIEnv *env, jobject obj) {
-    return nullptr;
+static void doStopAndWipe() {
+    LOGI(OBFUSCATE("stop & wipe - killing process"));
+    doWipeCache();
+    doClearReports();
+    // kill our own process (in virtual space, this IS the game)
+    kill(getpid(), SIGKILL);
 }
 
 // ============================================================
-// FEATURE LIST
+// REQUIRED FRAMEWORK FUNCTIONS
+// ============================================================
+void setText(JNIEnv *env, jobject obj, const char *text) { return; }
+jstring Icon(JNIEnv *env, jobject obj) { return env->NewStringUTF(""); }
+jstring IconWebViewData(JNIEnv *env, jobject obj) { return env->NewStringUTF(""); }
+jobjectArray SettingsList(JNIEnv *env, jobject obj) { return nullptr; }
+
+// ============================================================
+// FEATURE LIST - with descriptions
 // ============================================================
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
 
     const char *features[] = {
-        OBFUSCATE("RichWebView_<html><head><meta name='viewport' content='width=device-width, initial-scale=1'><style>*{keyframes glow{0%{text-shadow:0 0 8px #ff2200,0 0 16px #ff4500;}50%{text-shadow:0 0 22px #ff6600,0 0 44px #ff4500;}100%{text-shadow:0 0 8px #ff2200,0 0 16px #ff4500;}}body{font-family: cursive;color:#cc9966;font-size:11px;letter-spacing:2px;'>TrispyCheats</div></body></html>"),
+        // compact header
+        OBFUSCATE("RichWebView_<html><head><meta name='viewport' content='width=device-width,initial-scale=1'><style>*{box-sizing:border-box;}body{margin:0;padding:6px 4px;background:linear-gradient(180deg,#0d0d0d,#1a0a0a);font-family:sans-serif;text-align:center;}h1{margin:0;font-size:16px;letter-spacing:3px;color:#ff4500;text-shadow:0 0 10px #ff2200,0 0 20px #ff4500;font-weight:700;}p{margin:2px 0 0;font-size:9px;color:#ff9966;letter-spacing:2px;}i{display:inline-block;width:6px;height:6px;background:#ff2200;border-radius:50%;box-shadow:0 0 6px #ff4500;margin:0 4px;}</style></head><body><h1>TRISPY</h1><p><i></i>CHEATS<i></i></p></body></html>"),
 
-        OBFUSCATE("Category_AIM"),
+        // ---- AIM ----
+        OBFUSCATE("Category_⚡ AIM"),
         OBFUSCATE("Toggle_Aimlock Head"),
+        OBFUSCATE("TextView_▶ Use: LOBBY or IN-GAME"),
+        OBFUSCATE("TextView_▶ Locks crosshair to enemy head"),
         OBFUSCATE("SeekBar_Aim Smooth_1_20"),
+        OBFUSCATE("TextView_▶ 1 = instant, 20 = slow"),
         OBFUSCATE("SeekBar_Aim FOV_1_360"),
+        OBFUSCATE("TextView_▶ Detection range (degrees)"),
         OBFUSCATE("Toggle_Ignore Knocked"),
+        OBFUSCATE("TextView_▶ Skip downed enemies"),
         OBFUSCATE("Toggle_Visible Check Only"),
+        OBFUSCATE("TextView_▶ Only aim at visible targets"),
 
-        OBFUSCATE("Category_VISUAL"),
+        // ---- VISUAL ----
+        OBFUSCATE("Category_👁 VISUAL"),
         OBFUSCATE("Toggle_ESP Enemy"),
+        OBFUSCATE("TextView_▶ Use: IN-GAME only"),
+        OBFUSCATE("TextView_▶ See enemies through walls"),
         OBFUSCATE("Toggle_ESP Glow"),
+        OBFUSCATE("TextView_▶ Highlights enemies with glow"),
         OBFUSCATE("Toggle_ESP Line"),
+        OBFUSCATE("TextView_▶ Draws line to each enemy"),
         OBFUSCATE("Toggle_ESP Box"),
+        OBFUSCATE("TextView_▶ Box outline around enemies"),
         OBFUSCATE("SeekBar_ESP Range_1_1000"),
+        OBFUSCATE("TextView_▶ Max distance for ESP"),
 
-        OBFUSCATE("Category_SYSTEM"),
+        // ---- SYSTEM ----
+        OBFUSCATE("Category_⚙ SYSTEM"),
         OBFUSCATE("Toggle_Anti-Cheat Bypass"),
+        OBFUSCATE("TextView_▶ Turn ON in LOBBY before match"),
+        OBFUSCATE("TextView_▶ Keeps patches hidden from ACE"),
         OBFUSCATE("Button_Clear Reports"),
+        OBFUSCATE("TextView_▶ Run anytime — deletes logs"),
         OBFUSCATE("Button_Wipe Cache"),
+        OBFUSCATE("TextView_▶ Run anytime — clears cached data"),
         OBFUSCATE("Button_STOP & WIPE"),
+        OBFUSCATE("TextView_▶ Kills game + wipes everything"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -96,65 +137,36 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 }
 
 // ============================================================
-// BUTTON HANDLER
+// BUTTON HANDLER — featNum indexes match feature array above
 // ============================================================
 void Changes(JNIEnv *env, jclass clazz, jobject obj,
              jint featNum, jstring featName, jint value,
              jlong lValue, jboolean boolean, jstring jstr) {
     switch (featNum) {
-        case 1:
-            break;
-        case 2:
-            aimlockHead = boolean;
-            break;
-        case 3:
-            aimSmooth = value;
-            break;
-        case 4:
-            aimFov = value;
-            break;
-        case 5:
-            ignoreKnocked = boolean;
-            break;
-        case 6:
-            visibleCheck = boolean;
-            break;
-        case 7:
-            break;
-        case 8:
-            espEnemy = boolean;
-            break;
-        case 9:
-            espGlow = boolean;
-            break;
-        case 10:
-            espLine = boolean;
-            break;
-        case 11:
-            espBox = boolean;
-            break;
-        case 12:
-            espRange = value;
-            break;
-        case 13:
-            break;
-        case 14:
-            antiCheat = boolean;
-            break;
-        case 15:
-            break;
-        case 16:
-            break;
-        case 17:
-            btnPressed = boolean;
-            break;
-        case 18:
-            break;
-        default:
-            break;
+
+        // ---- AIM ----
+        case 3:  aimlockHead   = boolean; break;
+        case 5:  aimSmooth     = value;   break;
+        case 7:  aimFov        = value;   break;
+        case 9:  ignoreKnocked = boolean; break;
+        case 11: visibleCheck  = boolean; break;
+
+        // ---- VISUAL ----
+        case 14: espEnemy = boolean; break;
+        case 17: espGlow  = boolean; break;
+        case 20: espLine  = boolean; break;
+        case 23: espBox   = boolean; break;
+        case 25: espRange = value;   break;
+
+        // ---- SYSTEM ----
+        case 28: antiCheat = boolean; break;
+        case 31: doClearReports();    break;   // Clear Reports button
+        case 34: doWipeCache();       break;   // Wipe Cache button
+        case 37: doStopAndWipe();     break;   // STOP & WIPE button
+
+        default: break;
     }
 
-    // fire the patches whenever a switch flips
     applyPatches();
 }
 
