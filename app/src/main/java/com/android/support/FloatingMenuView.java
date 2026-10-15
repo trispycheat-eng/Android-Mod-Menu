@@ -1,7 +1,3 @@
-
-        addView(b);
-    }
-}
 package com.android.support;
 
 import android.content.Context;
