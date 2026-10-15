@@ -19,7 +19,7 @@
 #include "Includes/Macros.h"
 
 // ============================================================
-// TRISPY CHEATS - t.me/TrispyCheats
+// TRISPY CHEATS
 // ============================================================
 
 bool aimlockHead = false;
@@ -34,18 +34,19 @@ int aimFov = 30;
 int espRange = 200;
 int aimSmooth = 5;
 bool btnPressed = false;
+bool matchMode = false;
 
 extern void applyPatches();
 
 // ============================================================
-// ACTION FUNCTIONS (for buttons)
+// ACTION FUNCTIONS
 // ============================================================
 static void doClearReports() {
     LOGI(OBFUSCATE("clearing reports..."));
-    // kill any report writers, delete report/crash folders in our process space
     system("rm -rf /data/data/com.dts.freefireth/files/report* 2>/dev/null");
     system("rm -rf /data/data/com.dts.freefireth/files/crash* 2>/dev/null");
     system("rm -rf /data/data/com.dts.freefiremax/files/report* 2>/dev/null");
+    system("rm -rf /data/data/com.dts.freefiremax/files/crash* 2>/dev/null");
     system("rm -rf /sdcard/Android/data/com.dts.freefireth/files/report* 2>/dev/null");
     system("rm -rf /sdcard/Android/data/com.dts.freefiremax/files/report* 2>/dev/null");
     LOGI(OBFUSCATE("reports cleared"));
@@ -61,10 +62,9 @@ static void doWipeCache() {
 }
 
 static void doStopAndWipe() {
-    LOGI(OBFUSCATE("stop & wipe - killing process"));
+    LOGI(OBFUSCATE("stop & wipe"));
     doWipeCache();
     doClearReports();
-    // kill our own process (in virtual space, this IS the game)
     kill(getpid(), SIGKILL);
 }
 
@@ -77,54 +77,37 @@ jstring IconWebViewData(JNIEnv *env, jobject obj) { return env->NewStringUTF("")
 jobjectArray SettingsList(JNIEnv *env, jobject obj) { return nullptr; }
 
 // ============================================================
-// FEATURE LIST - with descriptions
+// FEATURE LIST — descriptions baked into titles
 // ============================================================
 jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
     jobjectArray ret;
 
     const char *features[] = {
-        // compact header
-        OBFUSCATE("RichWebView_<html><head><meta name='viewport' content='width=device-width,initial-scale=1'><style>*{box-sizing:border-box;}body{margin:0;padding:6px 4px;background:linear-gradient(180deg,#0d0d0d,#1a0a0a);font-family:sans-serif;text-align:center;}h1{margin:0;font-size:16px;letter-spacing:3px;color:#ff4500;text-shadow:0 0 10px #ff2200,0 0 20px #ff4500;font-weight:700;}p{margin:2px 0 0;font-size:9px;color:#ff9966;letter-spacing:2px;}i{display:inline-block;width:6px;height:6px;background:#ff2200;border-radius:50%;box-shadow:0 0 6px #ff4500;margin:0 4px;}</style></head><body><h1>TRISPY</h1><p><i></i>CHEATS<i></i></p></body></html>"),
+        OBFUSCATE("RichWebView_<html><head><meta name='viewport' content='width=device-width,initial-scale=1'><style>*{box-sizing:border-box;}body{margin:0;padding:6px 4px;background:linear-gradient(180deg,#0d0d0d,#1a0a0a);font-family:sans-serif;text-align:center;}h1{margin:0;font-size:16px;letter-spacing:3px;color:#ff4500;text-shadow:0 0 10px #ff2200,0 0 20px #ff4500;font-weight:700;}p{margin:2px 0 0;font-size:9px;color:#ff9966;letter-spacing:2px;}</style></head><body><h1>TRISPY</h1><p>CHEATS PANEL</p></body></html>"),
 
         // ---- AIM ----
         OBFUSCATE("Category_⚡ AIM"),
-        OBFUSCATE("Toggle_Aimlock Head"),
-        OBFUSCATE("TextView_▶ Use: LOBBY or IN-GAME"),
-        OBFUSCATE("TextView_▶ Locks crosshair to enemy head"),
-        OBFUSCATE("SeekBar_Aim Smooth_1_20"),
-        OBFUSCATE("TextView_▶ 1 = instant, 20 = slow"),
-        OBFUSCATE("SeekBar_Aim FOV_1_360"),
-        OBFUSCATE("TextView_▶ Detection range (degrees)"),
-        OBFUSCATE("Toggle_Ignore Knocked"),
-        OBFUSCATE("TextView_▶ Skip downed enemies"),
-        OBFUSCATE("Toggle_Visible Check Only"),
-        OBFUSCATE("TextView_▶ Only aim at visible targets"),
+        OBFUSCATE("Toggle_Aimlock Head  (use: in-match)"),
+        OBFUSCATE("SeekBar_Aim Smooth  (1=instant 20=slow)_1_20"),
+        OBFUSCATE("SeekBar_Aim FOV  (range in degrees)_1_360"),
+        OBFUSCATE("Toggle_Ignore Knocked  (skip downed)"),
+        OBFUSCATE("Toggle_Visible Check Only  (only visible)"),
 
         // ---- VISUAL ----
         OBFUSCATE("Category_👁 VISUAL"),
-        OBFUSCATE("Toggle_ESP Enemy"),
-        OBFUSCATE("TextView_▶ Use: IN-GAME only"),
-        OBFUSCATE("TextView_▶ See enemies through walls"),
-        OBFUSCATE("Toggle_ESP Glow"),
-        OBFUSCATE("TextView_▶ Highlights enemies with glow"),
-        OBFUSCATE("Toggle_ESP Line"),
-        OBFUSCATE("TextView_▶ Draws line to each enemy"),
-        OBFUSCATE("Toggle_ESP Box"),
-        OBFUSCATE("TextView_▶ Box outline around enemies"),
-        OBFUSCATE("SeekBar_ESP Range_1_1000"),
-        OBFUSCATE("TextView_▶ Max distance for ESP"),
+        OBFUSCATE("Toggle_ESP Enemy  (use: in-match)"),
+        OBFUSCATE("Toggle_ESP Glow  (highlight enemies)"),
+        OBFUSCATE("Toggle_ESP Line  (line to each enemy)"),
+        OBFUSCATE("Toggle_ESP Box  (box around enemies)"),
+        OBFUSCATE("SeekBar_ESP Range  (max distance)_1_1000"),
 
         // ---- SYSTEM ----
         OBFUSCATE("Category_⚙ SYSTEM"),
-        OBFUSCATE("Toggle_Anti-Cheat Bypass"),
-        OBFUSCATE("TextView_▶ Turn ON in LOBBY before match"),
-        OBFUSCATE("TextView_▶ Keeps patches hidden from ACE"),
-        OBFUSCATE("Button_Clear Reports"),
-        OBFUSCATE("TextView_▶ Run anytime — deletes logs"),
-        OBFUSCATE("Button_Wipe Cache"),
-        OBFUSCATE("TextView_▶ Run anytime — clears cached data"),
-        OBFUSCATE("Button_STOP & WIPE"),
-        OBFUSCATE("TextView_▶ Kills game + wipes everything"),
+        OBFUSCATE("Toggle_Anti-Cheat Bypass  (turn ON in lobby)"),
+        OBFUSCATE("Button_MATCH MODE  (hide panel for 5 min)"),
+        OBFUSCATE("Button_Clear Reports  (deletes logs)"),
+        OBFUSCATE("Button_Wipe Cache  (clears cached data)"),
+        OBFUSCATE("Button_STOP & WIPE  (kill + wipe)"),
     };
 
     int Total_Feature = (sizeof features / sizeof features[0]);
@@ -137,32 +120,32 @@ jobjectArray GetFeatureList(JNIEnv *env, jobject context) {
 }
 
 // ============================================================
-// BUTTON HANDLER — featNum indexes match feature array above
+// BUTTON HANDLER — indices match feature array exactly
 // ============================================================
 void Changes(JNIEnv *env, jclass clazz, jobject obj,
              jint featNum, jstring featName, jint value,
              jlong lValue, jboolean boolean, jstring jstr) {
     switch (featNum) {
+        // AIM
+        case 2:  aimlockHead   = boolean; break;
+        case 3:  aimSmooth     = value;   break;
+        case 4:  aimFov        = value;   break;
+        case 5:  ignoreKnocked = boolean; break;
+        case 6:  visibleCheck  = boolean; break;
 
-        // ---- AIM ----
-        case 3:  aimlockHead   = boolean; break;
-        case 5:  aimSmooth     = value;   break;
-        case 7:  aimFov        = value;   break;
-        case 9:  ignoreKnocked = boolean; break;
-        case 11: visibleCheck  = boolean; break;
+        // VISUAL
+        case 8:  espEnemy = boolean; break;
+        case 9:  espGlow  = boolean; break;
+        case 10: espLine  = boolean; break;
+        case 11: espBox   = boolean; break;
+        case 12: espRange = value;   break;
 
-        // ---- VISUAL ----
-        case 14: espEnemy = boolean; break;
-        case 17: espGlow  = boolean; break;
-        case 20: espLine  = boolean; break;
-        case 23: espBox   = boolean; break;
-        case 25: espRange = value;   break;
-
-        // ---- SYSTEM ----
-        case 28: antiCheat = boolean; break;
-        case 31: doClearReports();    break;   // Clear Reports button
-        case 34: doWipeCache();       break;   // Wipe Cache button
-        case 37: doStopAndWipe();     break;   // STOP & WIPE button
+        // SYSTEM
+        case 14: antiCheat = boolean; break;
+        case 15: matchMode = true;    break;  // Java handles hide
+        case 16: doClearReports();    break;
+        case 17: doWipeCache();       break;
+        case 18: doStopAndWipe();     break;
 
         default: break;
     }
@@ -185,13 +168,13 @@ void Update(void *instance) {
 ElfScanner g_il2cppELF;
 
 void *hack_thread(void *) {
-    LOGI(OBFUSCATE("trispy hook thread started"));
+    LOGI(OBFUSCATE("trispy thread started"));
     do { sleep(1); } while (!isLibraryLoaded(targetLibName));
     LOGI(OBFUSCATE("%s loaded"), (const char *) targetLibName);
 #ifdef __aarch64__
     uintptr_t il2cppBase = g_il2cppELF.base();
 #endif
-    LOGI(OBFUSCATE("trispy hook thread done"));
+    LOGI(OBFUSCATE("trispy thread done"));
     return nullptr;
 }
 
