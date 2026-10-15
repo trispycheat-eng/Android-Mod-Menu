@@ -24,7 +24,7 @@ extern void Changes(JNIEnv *env, jclass clazz, jobject obj,
 // JNI BRIDGE — Java Menu.Changes() → C++ Changes()
 // ============================================================
 extern "C" JNIEXPORT void JNICALL
-Java_com_android_support_Menu_Changes(JNIEnv *env, jclass clazz,
+Java_com_android_support_NativeBridge_Changes(JNIEnv *env, jclass clazz,
                                        jobject ctx, jstring featName,
                                        jint featNum, jlong lValue,
                                        jboolean boolean, jstring str) {
