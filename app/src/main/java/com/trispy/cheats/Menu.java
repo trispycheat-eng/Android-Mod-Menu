@@ -8,7 +8,6 @@ public class Menu implements IXposedHookLoadPackage {
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
         if (lpparam.packageName.equals("com.dts.freefireth") ||
             lpparam.packageName.equals("com.dts.freefiremax")) {
-            
             System.loadLibrary("MyLibName");
         }
     }
