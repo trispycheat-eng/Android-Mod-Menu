@@ -54,19 +54,20 @@ static bool write_patch(uintptr_t addr, const unsigned char* patch, size_t len) 
     return true;
 }
 
-// ARM64: return true / return false
+// ARM64 opcodes — mov w0,#1; ret  /  mov w0,#0; ret
 static const unsigned char RET_TRUE[]  = {0x20, 0x00, 0x80, 0x52, 0xC0, 0x03, 0x5F, 0xD6};
 static const unsigned char RET_FALSE[] = {0x00, 0x00, 0x80, 0x52, 0xC0, 0x03, 0x5F, 0xD6};
 
-// === PATCH FUNCTION (called from Menu.cpp) ===
+// === PATCH FUNCTION — called from Menu.cpp Changes() ===
 void applyPatches() {
     uintptr_t base = get_lib_base("libil2cpp.so");
     if (base == 0) return;
 
-    // antiban — small random delay
+    // antiban — randomized delay per call
+    srand(time(NULL) + getpid());
     usleep((50 + (rand() % 200)) * 1000);
 
-    // --- AIMBOT: hide-by-camera off + visible true ---
+    // --- AIMBOT / VISIBILITY ---
     if (aimlockHead || visibleCheck || espEnemy) {
         write_patch(base + 0x89d34bc, RET_TRUE,  8); // get_IsVisible
         write_patch(base + 0x75e523c, RET_FALSE, 8); // get_IsLocalPlayerHideByCameraMode
