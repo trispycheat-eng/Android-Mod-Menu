@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
     public boolean hasLaunched = false;
 
     private static final String PASSWORD = "Trispy";
-    private static final String PREFS = "trispy_prefs";
+    private static final String PREFS = "trispy.prefs";
     private static final String KEY_SAVED = "saved_pass";
     private static final String KEY_REMEMBER = "remember";
     private static final int OVERLAY_REQ = 1002;
@@ -57,10 +57,11 @@ public class MainActivity extends Activity {
 
     private TextView statusLine;
 
-    // floating overlay
     private WindowManager wm;
     private View logoBtn;
     private View menuPanel;
+    private Handler autoHideHandler = new Handler(Looper.getMainLooper());
+    private boolean isMatchRunning = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,7 +76,7 @@ public class MainActivity extends Activity {
         box.setPadding(70, 0, 70, 0);
 
         TextView title = new TextView(this);
-        title.setText("⋆ TRISPY ⋆");
+        title.setText("★ TRISPY ★");
         title.setTextColor(Color.parseColor("#FF4500"));
         title.setTextSize(34);
         title.setTypeface(null, Typeface.BOLD);
@@ -84,78 +85,12 @@ public class MainActivity extends Activity {
         box.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("by TrispyCheats\nt.me/TrispyCheats");
+        sub.setText("by TrispyCheats t.me/TrispyCheats");
         sub.setTextColor(Color.parseColor("#CC9966"));
         sub.setTextSize(13);
         sub.setGravity(Gravity.CENTER);
         sub.setPadding(0, 12, 0, 44);
         box.addView(sub);
-
-        LinearLayout passRow = new LinearLayout(this);
-        passRow.setOrientation(LinearLayout.HORIZONTAL);
-        passRow.setGravity(Gravity.CENTER_VERTICAL);
-
-        final EditText pass = new EditText(this);
-        pass.setHint("password");
-        pass.setHintTextColor(Color.parseColor("#553322"));
-        pass.setTextColor(Color.parseColor("#FFDDBB"));
-        pass.setBackgroundColor(Color.parseColor("#22000000"));
-        pass.setPadding(30, 30, 30, 30);
-        pass.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        pass.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(0, -2, 1f);
-        passRow.addView(pass, plp);
-
-        Button pasteBtn = new Button(this);
-        pasteBtn.setText("📋");
-        pasteBtn.setTextSize(16);
-        pasteBtn.setBackgroundColor(Color.parseColor("#3a0505"));
-        pasteBtn.setTextColor(Color.parseColor("#FFDDBB"));
-        LinearLayout.LayoutParams pasteLp = new LinearLayout.LayoutParams(-2, -2);
-        pasteLp.leftMargin = 10;
-        passRow.addView(pasteBtn, pasteLp);
-        box.addView(passRow);
-
-        pasteBtn.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                try {
-                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                    if (cm != null && cm.hasPrimaryClip()) {
-                        ClipData cd = cm.getPrimaryClip();
-                        if (cd != null && cd.getItemCount() > 0) {
-                            CharSequence txt = cd.getItemAt(0).coerceToText(MainActivity.this);
-                            pass.setText(txt);
-                            pass.setSelection(pass.getText().length());
-                        }
-                    }
-                } catch (Throwable t) {}
-            }
-        });
-
-        final SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        final CheckBox remember = new CheckBox(this);
-        remember.setText("Save Login");
-        remember.setTextColor(Color.parseColor("#CC9966"));
-        if (Build.VERSION.SDK_INT >= 21) {
-            try {
-                remember.setButtonTintList(
-                    android.content.res.ColorStateList.valueOf(Color.parseColor("#FF4500")));
-            } catch (Throwable t) {}
-        }
-        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-2, -2);
-        rlp.topMargin = 14;
-        rlp.gravity = Gravity.CENTER_HORIZONTAL;
-        box.addView(remember, rlp);
-
-        Button go = new Button(this);
-        go.setText("⚔ UNLOCK ⚔");
-        go.setTextColor(Color.parseColor("#FFEECC"));
-        go.setTextSize(16);
-        go.setTypeface(null, Typeface.BOLD);
-        go.setBackgroundColor(Color.parseColor("#3a0505"));
-        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(-1, -2);
-        gp.topMargin = 24;
-        box.addView(go, gp);
 
         statusLine = new TextView(this);
         statusLine.setText("");
@@ -166,43 +101,18 @@ public class MainActivity extends Activity {
         statusLine.setAlpha(0f);
         box.addView(statusLine);
 
-        AlphaAnimation pulse = new AlphaAnimation(0.7f, 1f);
-        pulse.setDuration(1400);
-        pulse.setRepeatMode(Animation.REVERSE);
-        pulse.setRepeatCount(Animation.INFINITE);
-        title.startAnimation(pulse);
-
-        if (prefs.getBoolean(KEY_REMEMBER, false)) {
-            remember.setChecked(true);
-            pass.setText(prefs.getString(KEY_SAVED, ""));
-        }
-
-        go.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                if (!pass.getText().toString().equals(PASSWORD)) {
-                    Toast.makeText(MainActivity.this, "✕ wrong", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                if (remember.isChecked()) {
-                    prefs.edit().putBoolean(KEY_REMEMBER, true)
-                        .putString(KEY_SAVED, pass.getText().toString()).apply();
-                } else {
-                    prefs.edit().remove(KEY_REMEMBER).remove(KEY_SAVED).apply();
-                }
-                afterUnlock();
-            }
-        });
-
+        // Password bypassed — go straight to unlock flow
         root.addView(box);
         setContentView(root);
+        afterUnlock();
     }
 
     private void afterUnlock() {
         if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(this)) {
             try {
                 startActivityForResult(new Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName())), OVERLAY_REQ);
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName())), OVERLAY_REQ);
             } catch (Throwable t) {
                 launchMenuAndGame();
             }
@@ -222,7 +132,8 @@ public class MainActivity extends Activity {
     private void showStatus(final String text) {
         try {
             runOnUiThread(new Runnable() {
-                @Override public void run() {
+                @Override
+                public void run() {
                     statusLine.setText(text);
                     statusLine.animate().alpha(1f).setDuration(300).start();
                 }
@@ -231,14 +142,13 @@ public class MainActivity extends Activity {
     }
 
     // ============================================================
-    //  FLOATING LOGO — circular image, drag + tap
+    // FLOATING LOGO — circular image, drag + tap
     // ============================================================
     private void addFloatingLogo() {
         if (logoBtn != null) return;
         try {
             wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
 
-            // load logo bitmap from drawable
             Bitmap bmp = null;
             try {
                 int id = getResources().getIdentifier("trispy_logo", "drawable", getPackageName());
@@ -247,7 +157,7 @@ public class MainActivity extends Activity {
             if (bmp == null) {
                 try {
                     android.graphics.drawable.Drawable d = getPackageManager()
-                        .getApplicationIcon(getPackageName());
+                            .getApplicationIcon(getPackageName());
                     if (d instanceof BitmapDrawable) bmp = ((BitmapDrawable) d).getBitmap();
                 } catch (Throwable t) {}
             }
@@ -255,15 +165,15 @@ public class MainActivity extends Activity {
             final CircularLogoView logo = new CircularLogoView(this, bmp);
 
             int type = Build.VERSION.SDK_INT >= 26
-                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_PHONE;
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
 
-            final int size = (int)(getResources().getDisplayMetrics().density * 70); // 70dp
+            final int size = (int)(getResources().getDisplayMetrics().density * 70);
             final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                size, size, type,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                    | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.TRANSLUCENT);
+                    size, size, type,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.TOP | Gravity.LEFT;
             lp.x = 40;
             lp.y = 350;
@@ -274,7 +184,8 @@ public class MainActivity extends Activity {
             logo.setOnTouchListener(new View.OnTouchListener() {
                 int ix, iy;
                 float tx, ty;
-                @Override public boolean onTouch(View v, MotionEvent e) {
+                @Override
+                public boolean onTouch(View v, MotionEvent e) {
                     switch (e.getAction()) {
                         case MotionEvent.ACTION_DOWN:
                             ix = lp.x; iy = lp.y;
@@ -323,16 +234,16 @@ public class MainActivity extends Activity {
             });
 
             int type = Build.VERSION.SDK_INT >= 26
-                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_PHONE;
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
 
             int w = (int)(getResources().getDisplayMetrics().density * 260);
             WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                w,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                type,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                PixelFormat.TRANSLUCENT);
+                    w,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    type,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.CENTER;
             wm.addView(panel, lp);
             menuPanel = panel;
@@ -351,7 +262,7 @@ public class MainActivity extends Activity {
     }
 
     private void launchMenuAndGame() {
-        showStatus("◇ starting panel...");
+        showStatus("starting panel...");
 
         try {
             Intent svc = new Intent(this, KeepAliveService.class);
@@ -364,15 +275,16 @@ public class MainActivity extends Activity {
         addFloatingLogo();
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() { showStatus("❤️‍🩹 • Made With Love"); }
+            @Override public void run() { showStatus("❤ Made With Love"); }
         }, 700);
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() { showStatus("🕷️ • Trispy On Top"); }
+            @Override public void run() { showStatus("🔱 Trispy On Top"); }
         }, 2400);
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 if (hasLaunched) return;
                 hasLaunched = true;
                 try {
@@ -384,16 +296,16 @@ public class MainActivity extends Activity {
                         moveTaskToBack(true);
                         return;
                     }
-                    showStatus("✕ Free Fire not installed");
+                    showStatus("✗ Free Fire not installed");
                 } catch (Throwable t) {
-                    showStatus("✕ launch failed\n" + t.getMessage());
+                    showStatus("✗ launch failed\n" + t.getMessage());
                 }
             }
         }, 4000);
     }
 
     // ============================================================
-    //  ANIMATED HELL BACKGROUND
+    // ANIMATED HELL BACKGROUND
     // ============================================================
     public static class HellBackgroundView extends View {
 
@@ -411,7 +323,7 @@ public class MainActivity extends Activity {
             bgPaint = new Paint();
             emberPaint = new Paint(); emberPaint.setAntiAlias(true);
             glowPaint = new Paint(); glowPaint.setAntiAlias(true);
-            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            setLayerType(LAYER_TYPE_SOFTWARE, null);
         }
 
         private Ember newEmber(boolean randY) {
@@ -432,9 +344,9 @@ public class MainActivity extends Activity {
             super.onSizeChanged(w, h, ow, oh);
             try {
                 bgPaint.setShader(new LinearGradient(0, 0, 0, h,
-                    new int[]{Color.parseColor("#050000"), Color.parseColor("#1a0000"),
-                               Color.parseColor("#3a0505"), Color.parseColor("#0a0000")},
-                    new float[]{0f, 0.4f, 0.75f, 1f}, Shader.TileMode.CLAMP));
+                        new int[]{Color.parseColor("#050000"), Color.parseColor("#1a0000"),
+                                Color.parseColor("#3a0505"), Color.parseColor("#0a0000")},
+                        new float[]{0f, 0.4f, 0.75f, 1f}, Shader.TileMode.CLAMP));
             } catch (Throwable t) {}
             embers.clear();
             for (int i = 0; i < 70; i++) embers.add(newEmber(true));
@@ -468,4 +380,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-                }
+}
