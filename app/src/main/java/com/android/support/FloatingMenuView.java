@@ -1,3 +1,7 @@
+
+        addView(b);
+    }
+}
 package com.android.support;
 
 import android.content.Context;
@@ -12,6 +16,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -29,7 +34,7 @@ public class FloatingMenuView extends LinearLayout {
         this.wm = wm;
         this.lp = lp;
         setOrientation(VERTICAL);
-        setPadding(28, 22, 28, 22);
+        setPadding(0, 0, 0, 0);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(0xEE0A0000);
@@ -37,17 +42,16 @@ public class FloatingMenuView extends LinearLayout {
         bg.setCornerRadius(22);
         setBackground(bg);
 
-        final SharedPreferences p = c.getSharedPreferences("trispy_toggles", Context.MODE_PRIVATE);
-
-        // header — draggable
-        LinearLayout head = new LinearLayout(c);
+        // -------- header (draggable + close) --------
+        final LinearLayout head = new LinearLayout(c);
         head.setOrientation(HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setPadding(24, 16, 24, 12);
 
         TextView t = new TextView(c);
         t.setText("★ TRISPY ★");
         t.setTextColor(Color.parseColor("#FF4500"));
-        t.setTextSize(16);
+        t.setTextSize(15);
         t.setTypeface(null, Typeface.BOLD);
         t.setShadowLayer(12, 0, 0, Color.parseColor("#FF2200"));
         head.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
@@ -56,63 +60,85 @@ public class FloatingMenuView extends LinearLayout {
         x.setText("✕");
         x.setTextColor(Color.parseColor("#FFDDBB"));
         x.setTextSize(18);
-        x.setPadding(24, 0, 0, 0);
+        x.setPadding(20, 0, 0, 0);
         x.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { if (closeCb != null) closeCb.onClose(); }
         });
         head.addView(x);
 
+        // drag the whole header
         head.setOnTouchListener(new View.OnTouchListener() {
-            int ix, iy; float tx, ty;
+            int ix, iy; float tx, ty; boolean dragging;
             @Override public boolean onTouch(View v, MotionEvent e) {
                 switch (e.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         ix = lp.x; iy = lp.y;
                         tx = e.getRawX(); ty = e.getRawY();
+                        dragging = false;
                         return true;
                     case MotionEvent.ACTION_MOVE:
-                        lp.x = ix + (int)(e.getRawX() - tx);
-                        lp.y = iy + (int)(e.getRawY() - ty);
+                        int dx = (int)(e.getRawX() - tx);
+                        int dy = (int)(e.getRawY() - ty);
+                        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) dragging = true;
+                        lp.x = ix + dx;
+                        lp.y = iy + dy;
                         try { wm.updateViewLayout(FloatingMenuView.this, lp); } catch (Throwable t) {}
                         return true;
+                    case MotionEvent.ACTION_UP:
+                        return dragging;
                 }
                 return false;
             }
         });
         addView(head);
 
-        addSection("AIM");
-        addSwitch(p, "aim_head", "Aimlock Head", 2, "in-match only");
-        addSlider(p, "aim_smooth", "Aim Smooth", 3, 1, 20, "1=instant 20=slow");
-        addSlider(p, "aim_fov", "Aim FOV", 4, 1, 360, "range in degrees");
-        addSwitch(p, "ignore_knocked", "Ignore Knocked", 5, "skip downed");
-        addSwitch(p, "visible_check", "Visible Only", 6, "only visible targets");
+        // -------- scrollable body --------
+        ScrollView scroll = new ScrollView(c);
+        scroll.setPadding(24, 0, 24, 18);
+        LinearLayout body = new LinearLayout(c);
+        body.setOrientation(VERTICAL);
+        scroll.addView(body);
 
-        addSection("VISUAL");
-        addSwitch(p, "esp_enemy", "ESP Enemy", 8, "in-match only");
-        addSwitch(p, "esp_glow", "ESP Glow", 9, "highlight enemies");
-        addSwitch(p, "esp_line", "ESP Line", 10, "line to each enemy");
-        addSwitch(p, "esp_box", "ESP Box", 11, "box around enemies");
-        addSlider(p, "esp_range", "ESP Range", 12, 1, 1000, "max distance");
+        final SharedPreferences p = c.getSharedPreferences("trispy_toggles", Context.MODE_PRIVATE);
 
-        addSection("SYSTEM");
-        addSwitch(p, "anti_cheat", "Anti-Cheat Bypass", 14, "ON in lobby");
-        addButton("Clear Reports", 16);
-        addButton("Wipe Cache", 17);
-        addButton("STOP & WIPE", 18);
+        // AIM
+        addSection(body, "AIM");
+        addSwitch(body, p, "aim_head", "Aimlock Head", 2, "in-match only");
+        addSlider(body, p, "aim_smooth", "Aim Smooth", 3, 1, 20, "1=instant 20=slow");
+        addSlider(body, p, "aim_fov", "Aim FOV", 4, 1, 360, "range in degrees");
+        addSwitch(body, p, "ignore_knocked", "Ignore Knocked", 5, "skip downed");
+        addSwitch(body, p, "visible_check", "Visible Only", 6, "only visible targets");
+
+        // VISUAL
+        addSection(body, "VISUAL");
+        addSwitch(body, p, "esp_enemy", "ESP Enemy", 8, "in-match only");
+        addSwitch(body, p, "esp_glow", "ESP Glow", 9, "highlight enemies");
+        addSwitch(body, p, "esp_line", "ESP Line", 10, "line to each enemy");
+        addSwitch(body, p, "esp_box", "ESP Box", 11, "box around enemies");
+        addSlider(body, p, "esp_range", "ESP Range", 12, 1, 1000, "max distance");
+
+        // SYSTEM
+        addSection(body, "SYSTEM");
+        addSwitch(body, p, "anti_cheat", "Anti-Cheat Bypass", 14, "ON in lobby");
+        addButton(body, "Clear Reports", 16);
+        addButton(body, "Wipe Cache", 17);
+        addButton(body, "STOP & WIPE", 18);
+
+        addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
     }
 
-    private void addSection(String name) {
+    private void addSection(LinearLayout parent, String name) {
         TextView s = new TextView(getContext());
         s.setText("— " + name + " —");
         s.setTextColor(Color.parseColor("#CC9966"));
         s.setTextSize(11);
         s.setGravity(Gravity.CENTER);
-        s.setPadding(0, 14, 0, 4);
-        addView(s);
+        s.setPadding(0, 14, 0, 6);
+        parent.addView(s);
     }
 
-    private void addSwitch(SharedPreferences p, final String key, final String label, final int id, String hint) {
+    private void addSwitch(LinearLayout parent, SharedPreferences p, final String key,
+                           final String label, final int id, String hint) {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -120,6 +146,7 @@ public class FloatingMenuView extends LinearLayout {
 
         LinearLayout col = new LinearLayout(getContext());
         col.setOrientation(VERTICAL);
+
         TextView tv = new TextView(getContext());
         tv.setText(label);
         tv.setTextColor(Color.parseColor("#FFDDBB"));
@@ -139,15 +166,15 @@ public class FloatingMenuView extends LinearLayout {
         sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override public void onCheckedChanged(CompoundButton b, boolean v) {
                 p.edit().putBoolean(key, v).apply();
-                Menu.Changes(getContext(), label, id, 0, v, "");
+                try { NativeBridge.Changes(getContext(), label, id, 0, v, ""); } catch (Throwable t) {}
             }
         });
         row.addView(sw);
-        addView(row);
+        parent.addView(row);
     }
 
-    private void addSlider(final SharedPreferences p, final String key, final String label,
-                           final int id, final int min, final int max, String hint) {
+    private void addSlider(LinearLayout parent, final SharedPreferences p, final String key,
+                           final String label, final int id, final int min, final int max, String hint) {
         LinearLayout box = new LinearLayout(getContext());
         box.setOrientation(VERTICAL);
         box.setPadding(6, 4, 6, 4);
@@ -173,16 +200,18 @@ public class FloatingMenuView extends LinearLayout {
                 int v = prog + min;
                 tv.setText(label + ": " + v);
                 p.edit().putInt(key, v).apply();
-                if (fromUser) Menu.Changes(getContext(), label, id, v, false, "");
+                if (fromUser) {
+                    try { NativeBridge.Changes(getContext(), label, id, v, false, ""); } catch (Throwable t) {}
+                }
             }
             public void onStartTrackingTouch(SeekBar s) {}
             public void onStopTrackingTouch(SeekBar s) {}
         });
         box.addView(sb);
-        addView(box);
+        parent.addView(box);
     }
 
-    private void addButton(String label, final int id) {
+    private void addButton(LinearLayout parent, String label, final int id) {
         Button b = new Button(getContext());
         b.setText(label);
         b.setTextColor(Color.parseColor("#FFEECC"));
@@ -190,12 +219,12 @@ public class FloatingMenuView extends LinearLayout {
         b.setBackgroundColor(Color.parseColor("#3a0505"));
         b.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                Menu.Changes(getContext(), "btn", id, 0, false, "");
+                try { NativeBridge.Changes(getContext(), "btn", id, 0, false, ""); } catch (Throwable t) {}
             }
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = 6;
         b.setLayoutParams(lp);
-        addView(b);
+        parent.addView(b);
     }
 }
