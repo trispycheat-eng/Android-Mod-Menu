@@ -1,11 +1,8 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -22,46 +19,36 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.text.InputType;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.view.animation.AlphaAnimation;
-import android.view.animation.Animation;
-import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Random;
 
 public class MainActivity extends Activity {
 
-    public String GameActivity = "com.unity3d.player.UnityPlayerActivity";
-    public boolean hasLaunched = false;
-
-    private static final String PASSWORD = "Trispy";
-    private static final String PREFS = "trispy.prefs";
-    private static final String KEY_SAVED = "saved_pass";
-    private static final String KEY_REMEMBER = "remember";
     private static final int OVERLAY_REQ = 1002;
     private static final String FF_MAX = "com.dts.freefiremax";
     private static final String FF_NORMAL = "com.dts.freefireth";
+    private static final String UNITY_ACT = "com.unity3d.player.UnityPlayerActivity";
 
+    public boolean hasLaunched = false;
     private TextView statusLine;
-
     private WindowManager wm;
     private View logoBtn;
     private View menuPanel;
-    private Handler autoHideHandler = new Handler(Looper.getMainLooper());
-    private boolean isMatchRunning = false;
+    private boolean inMatch = false;
+    private Handler pollHandler = new Handler(Looper.getMainLooper());
+    private Runnable pollRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,7 +88,6 @@ public class MainActivity extends Activity {
         statusLine.setAlpha(0f);
         box.addView(statusLine);
 
-        // Password bypassed — go straight to unlock flow
         root.addView(box);
         setContentView(root);
         afterUnlock();
@@ -113,9 +99,7 @@ public class MainActivity extends Activity {
                 startActivityForResult(new Intent(
                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:" + getPackageName())), OVERLAY_REQ);
-            } catch (Throwable t) {
-                launchMenuAndGame();
-            }
+            } catch (Throwable t) { launchMenuAndGame(); }
         } else {
             launchMenuAndGame();
         }
@@ -124,16 +108,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
-        if (req == OVERLAY_REQ) {
-            launchMenuAndGame();
-        }
+        if (req == OVERLAY_REQ) launchMenuAndGame();
     }
 
     private void showStatus(final String text) {
         try {
             runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
+                @Override public void run() {
                     statusLine.setText(text);
                     statusLine.animate().alpha(1f).setDuration(300).start();
                 }
@@ -142,7 +123,67 @@ public class MainActivity extends Activity {
     }
 
     // ============================================================
-    // FLOATING LOGO — circular image, drag + tap
+    // TOP ACTIVITY DETECTOR (reflection on ActivityThread)
+    // ============================================================
+    private String getTopActivity() {
+        try {
+            Class<?> atClass = Class.forName("android.app.ActivityThread");
+            Object at = atClass.getMethod("currentActivityThread").invoke(null);
+            Field f = atClass.getDeclaredField("mActivities");
+            f.setAccessible(true);
+            Map<?,?> activities = (Map<?,?>) f.get(at);
+            if (activities == null) return null;
+            for (Object record : activities.values()) {
+                Class<?> recClass = record.getClass();
+                Field pausedField = recClass.getDeclaredField("paused");
+                pausedField.setAccessible(true);
+                boolean paused = pausedField.getBoolean(record);
+                if (!paused) {
+                    Field actField = recClass.getDeclaredField("activity");
+                    actField.setAccessible(true);
+                    Activity a = (Activity) actField.get(record);
+                    return a.getClass().getName();
+                }
+            }
+        } catch (Throwable t) {}
+        return null;
+    }
+
+    private void startMatchPoller() {
+        pollRunnable = new Runnable() {
+            @Override public void run() {
+                try {
+                    String top = getTopActivity();
+                    boolean nowInMatch = top != null && top.equals(UNITY_ACT);
+                    if (nowInMatch && !inMatch) {
+                        inMatch = true;
+                        hideAll();
+                        Log.i("Trispy", "match started — panel hidden");
+                    } else if (!nowInMatch && inMatch) {
+                        inMatch = false;
+                        showAll();
+                        Log.i("Trispy", "back to lobby — panel shown");
+                    }
+                } catch (Throwable t) {}
+                pollHandler.postDelayed(this, 2000);
+            }
+        };
+        pollHandler.postDelayed(pollRunnable, 3000);
+    }
+
+    private void hideAll() {
+        try { if (menuPanel != null) { wm.removeView(menuPanel); menuPanel = null; } } catch (Throwable t) {}
+        try { if (logoBtn != null) { wm.removeView(logoBtn); } } catch (Throwable t) {}
+    }
+
+    private void showAll() {
+        if (logoBtn != null && logoBtn.getParent() == null) {
+            try { wm.addView(logoBtn, logoBtn.getLayoutParams()); } catch (Throwable t) {}
+        }
+    }
+
+    // ============================================================
+    // FLOATING LOGO
     // ============================================================
     private void addFloatingLogo() {
         if (logoBtn != null) return;
@@ -168,7 +209,7 @@ public class MainActivity extends Activity {
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
 
-            final int size = (int)(getResources().getDisplayMetrics().density * 70);
+            final int size = (int)(getResources().getDisplayMetrics().density * 60);
             final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
                     size, size, type,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -184,8 +225,7 @@ public class MainActivity extends Activity {
             logo.setOnTouchListener(new View.OnTouchListener() {
                 int ix, iy;
                 float tx, ty;
-                @Override
-                public boolean onTouch(View v, MotionEvent e) {
+                @Override public boolean onTouch(View v, MotionEvent e) {
                     switch (e.getAction()) {
                         case MotionEvent.ACTION_DOWN:
                             ix = lp.x; iy = lp.y;
@@ -203,9 +243,7 @@ public class MainActivity extends Activity {
                             return true;
                         case MotionEvent.ACTION_UP:
                             long dur = System.currentTimeMillis() - downTime[0];
-                            if (!dragged[0] && dur < 400) {
-                                toggleMenu();
-                            }
+                            if (!dragged[0] && dur < 400) toggleMenu();
                             return true;
                     }
                     return false;
@@ -220,31 +258,29 @@ public class MainActivity extends Activity {
     }
 
     private void toggleMenu() {
-        if (menuPanel != null) {
-            hideMenu();
-        } else {
-            showMenu();
-        }
+        if (menuPanel != null) hideMenu(); else showMenu();
     }
 
     private void showMenu() {
         try {
-            final FloatingMenuView panel = new FloatingMenuView(this, new FloatingMenuView.OnClose() {
-                @Override public void onClose() { hideMenu(); }
-            });
-
             int type = Build.VERSION.SDK_INT >= 26
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
 
-            int w = (int)(getResources().getDisplayMetrics().density * 260);
-            WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+            int w = (int)(getResources().getDisplayMetrics().density * 240);
+            final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
                     w,
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     type,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                     PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.CENTER;
+
+            final FloatingMenuView panel = new FloatingMenuView(this, wm, lp,
+                    new FloatingMenuView.OnClose() {
+                        @Override public void onClose() { hideMenu(); }
+                    });
+
             wm.addView(panel, lp);
             menuPanel = panel;
         } catch (Throwable t) {
@@ -268,23 +304,19 @@ public class MainActivity extends Activity {
             Intent svc = new Intent(this, KeepAliveService.class);
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
             else startService(svc);
-        } catch (Throwable t) {
-            Log.e("Trispy", "service failed: " + t.getMessage());
-        }
+        } catch (Throwable t) { Log.e("Trispy", "service failed: " + t.getMessage()); }
 
         addFloatingLogo();
+        startMatchPoller();
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override public void run() { showStatus("❤ Made With Love"); }
         }, 700);
-
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override public void run() { showStatus("🔱 Trispy On Top"); }
         }, 2400);
-
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
+            @Override public void run() {
                 if (hasLaunched) return;
                 hasLaunched = true;
                 try {
@@ -305,27 +337,22 @@ public class MainActivity extends Activity {
     }
 
     // ============================================================
-    // ANIMATED HELL BACKGROUND
+    // ANIMATED BACKGROUND
     // ============================================================
     public static class HellBackgroundView extends View {
-
         private Paint bgPaint, emberPaint, glowPaint;
         private ArrayList<Ember> embers = new ArrayList<Ember>();
         private Random rand = new Random();
         private long lastFrame = 0;
-
         private class Ember { float x, y, size, speed, alpha; int color; }
-
         public HellBackgroundView(Context c) { super(c); init(); }
         public HellBackgroundView(Context c, AttributeSet a) { super(c, a); init(); }
-
         private void init() {
             bgPaint = new Paint();
             emberPaint = new Paint(); emberPaint.setAntiAlias(true);
             glowPaint = new Paint(); glowPaint.setAntiAlias(true);
             setLayerType(LAYER_TYPE_SOFTWARE, null);
         }
-
         private Ember newEmber(boolean randY) {
             Ember e = new Ember();
             int w = Math.max(getWidth(), 1), h = Math.max(getHeight(), 1);
@@ -338,7 +365,6 @@ public class MainActivity extends Activity {
             e.color = cols[rand.nextInt(cols.length)];
             return e;
         }
-
         @Override
         protected void onSizeChanged(int w, int h, int ow, int oh) {
             super.onSizeChanged(w, h, ow, oh);
@@ -351,28 +377,23 @@ public class MainActivity extends Activity {
             embers.clear();
             for (int i = 0; i < 70; i++) embers.add(newEmber(true));
         }
-
         @Override
         protected void onDraw(Canvas canvas) {
             int w = getWidth(), h = getHeight();
             if (w == 0 || h == 0) return;
             canvas.drawRect(0, 0, w, h, bgPaint);
-
             long now = System.currentTimeMillis();
             float dt = lastFrame == 0 ? 1f : Math.min(2.5f, (now - lastFrame) / 16f);
             lastFrame = now;
-
             for (int i = 0; i < embers.size(); i++) {
                 Ember e = embers.get(i);
                 e.y -= e.speed * dt;
                 e.x += (float)Math.sin((e.y + i * 9) * 0.015) * 0.7f;
                 e.alpha -= 0.35f * dt;
                 if (e.y < -20 || e.alpha <= 0) { embers.set(i, newEmber(false)); continue; }
-
                 glowPaint.setColor(e.color);
                 glowPaint.setAlpha((int)Math.max(0, e.alpha * 0.25f));
                 canvas.drawCircle(e.x, e.y, e.size * 3.2f, glowPaint);
-
                 emberPaint.setColor(e.color);
                 emberPaint.setAlpha((int)Math.max(0, e.alpha));
                 canvas.drawCircle(e.x, e.y, e.size, emberPaint);
@@ -380,4 +401,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-}
+                 }
