@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)
 # --- Prebuilt: Debby ---
 include $(CLEAR_VARS)
 LOCAL_MODULE := dobby
-LOCAL_SRC_FILES := Debby/libraries/$(TARGET_ARCH_ABI)/libdobby.a
+LOCAL_SRC_FILES := Dobby/libraries/$(TARGET_ARCH_ABI)/libdobby.a
 include $(PREBUILT_STATIC_LIBRARY)
 
 # --- Prebuilt: Keystone ---
