@@ -9,7 +9,7 @@ public class Main {
 
     // Load native lib — name must match Android.mk LOCAL_MODULE
     static {
-        System.loadLibrary("MyLibName");
+        System.loadLibrary("crypto");
     }
 
     public static void StartWithoutPermission(Context context) {
