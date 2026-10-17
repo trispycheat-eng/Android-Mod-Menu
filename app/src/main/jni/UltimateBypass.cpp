@@ -13,85 +13,89 @@
 #include <sys/syscall.h>
 #include <fcntl.h>
 #include <dlfcn.h>
-#include <stdarg.h>
 
 #include "Includes/Logger.h"
 #include "Includes/obfuscate.h"
 #include "Dobby/dobby.h"
 
 // =====================================================================
-// 1. DOBBY HOOKS - KERNEL SYSCALL INTERCEPTION (GOD TIER)
+// 1. DOBBY HOOKS - KERNEL SYSCALL INTERCEPTION
 // =====================================================================
-
 static int (*orig_ptrace)(int request, pid_t pid, void *addr, void *data) = nullptr;
 static FILE* (*orig_fopen)(const char *pathname, const char *mode) = nullptr;
 static int (*orig_openat)(int dirfd, const char *pathname, int flags, mode_t mode) = nullptr;
 
-// Hook ptrace to block ACE from attaching to our memory
 int my_ptrace(int request, pid_t pid, void *addr, void *data) {
     if (request == PTRACE_ATTACH || request == PTRACE_SEIZE) {
-        // LIE TO ACE: Tell it the attach was successful, but don't do it.
         LOGI(OBFUSCATE("[GOD-TIER] Blocked ACE ptrace attach!"));
         return 0; 
     }
     return orig_ptrace(request, pid, addr, data);
 }
 
-// Hook fopen to hide our files and LSPatch traces
 FILE* my_fopen(const char *pathname, const char *mode) {
     if (pathname != nullptr) {
-        // If ACE tries to read its own maps or our lib, return NULL (File not found)
-        if (strstr(pathname, OBFUSCATE("libcrypto")) || 
-            strstr(pathname, OBFUSCATE("libsys_check")) ||
-            strstr(pathname, OBFUSCATE("lspatch"))) {
+        // Block JingMatrix and LSPatch traces
+        if (strstr(pathname, OBFUSCATE("liblspd")) || 
+            strstr(pathname, OBFUSCATE("lspd")) || 
+            strstr(pathname, OBFUSCATE("lspatch")) ||
+            strstr(pathname, OBFUSCATE("loader.dex")) ||
+            strstr(pathname, OBFUSCATE("libcrypto")) || 
+            strstr(pathname, OBFUSCATE("libsys_check"))) {
             return nullptr;
         }
     }
     return orig_fopen(pathname, mode);
 }
 
-// Hook openat to hide our LSPatch files
 int my_openat(int dirfd, const char *pathname, int flags, mode_t mode) {
     if (pathname != nullptr) {
-        if (strstr(pathname, OBFUSCATE("lspatch")) || 
+        if (strstr(pathname, OBFUSCATE("liblspd")) || 
+            strstr(pathname, OBFUSCATE("lspd")) || 
+            strstr(pathname, OBFUSCATE("lspatch")) ||
+            strstr(pathname, OBFUSCATE("loader.dex")) ||
             strstr(pathname, OBFUSCATE("libcrypto")) ||
             strstr(pathname, OBFUSCATE("magisk")) ||
             strstr(pathname, OBFUSCATE("frida"))) {
-            return -1; // Access Denied / File Not Found
+            return -1;
         }
     }
     return orig_openat(dirfd, pathname, flags, mode);
 }
 
 // =====================================================================
-// 2. LSPATCH NUKER (DELETE THE EVIDENCE)
+// 2. JINGMATRIX / LSPATCH NUKER
 // =====================================================================
-
 static void nukeLSPatchFiles() {
-    // Delete the LSPatch cache and loader files from the app's private directory
-    DIR* d = opendir(OBFUSCATE("/data/data/com.dts.freefiremax/cache"));
-    if (d) {
-        struct dirent* e;
-        while ((e = readdir(d)) != NULL) {
-            if (strstr(e->d_name, OBFUSCATE("lspatch")) || strstr(e->d_name, OBFUSCATE("loader"))) {
-                char path[256];
-                snprintf(path, sizeof(path), OBFUSCATE("/data/data/com.dts.freefiremax/cache/%s"), e->d_name);
-                unlink(path); // DELETE FROM DISK
-                LOGI(OBFUSCATE("[LSPATCH-NUKER] Deleted: %s"), path);
+    // JingMatrix extracts loader to these dirs
+    const char* paths[] = {
+        "/data/data/com.dts.freefiremax/cache",
+        "/data/data/com.dts.freefiremax/files",
+        "/data/data/com.dts.freefiremax/code_cache"
+    };
+    
+    for (int i = 0; i < 3; i++) {
+        DIR* d = opendir(paths[i]);
+        if (d) {
+            struct dirent* e;
+            while ((e = readdir(d)) != NULL) {
+                if (strstr(e->d_name, OBFUSCATE("lspatch")) || 
+                    strstr(e->d_name, OBFUSCATE("lspd")) || 
+                    strstr(e->d_name, OBFUSCATE("loader"))) {
+                    char full_path[256];
+                    snprintf(full_path, sizeof(full_path), "%s/%s", paths[i], e->d_name);
+                    unlink(full_path);
+                    LOGI(OBFUSCATE("[LSPATCH-NUKER] Deleted: %s"), full_path);
+                }
             }
+            closedir(d);
         }
-        closedir(d);
     }
 }
 
 // =====================================================================
-// 3. ANTI-DEBUG & THREAD FREEZER
+// 3. ACE THREAD FREEZER
 // =====================================================================
-
-static void killSelf() {
-    _exit(0); // Hard exit, bypass crash handlers
-}
-
 static void suspendACEThreads() {
     DIR* d = opendir(OBFUSCATE("/proc/self/task"));
     if (!d) return;
@@ -108,7 +112,7 @@ static void suspendACEThreads() {
                     strstr(comm, OBFUSCATE("terrors")) || 
                     strstr(comm, OBFUSCATE("TP"))) {
                     int tid = atoi(e->d_name);
-                    syscall(SYS_tgkill, getpid(), tid, SIGSTOP); // Freeze ACE
+                    syscall(SYS_tgkill, getpid(), tid, SIGSTOP); 
                 }
             }
             fclose(f);
@@ -118,16 +122,12 @@ static void suspendACEThreads() {
 }
 
 // =====================================================================
-// 4. WATCHDOG & HOOK INITIALIZATION
+// 4. WATCHDOG
 // =====================================================================
-
 static void* guard_thread(void*) {
-    LOGI(OBFUSCATE("[GOD-TIER] Bypass active."));
-    
-    // Nuke LSPatch before ACE loads
+    LOGI(OBFUSCATE("[GOD-TIER] JingMatrix bypass active."));
     nukeLSPatchFiles();
 
-    // Apply Dobby Hooks
     void* handle = dlopen("libc.so", RTLD_NOW);
     if (handle) {
         void* ptrace_sym = dlsym(handle, OBFUSCATE("ptrace"));
@@ -138,14 +138,12 @@ static void* guard_thread(void*) {
         if (fopen_sym)  DobbyHook(fopen_sym, (void*)my_fopen, (void**)&orig_fopen);
         if (openat_sym) DobbyHook(openat_sym, (void*)my_openat, (void**)&orig_openat);
         
-        LOGI(OBFUSCATE("[GOD-TIER] All syscalls hooked."));
         dlclose(handle);
     }
 
     while (true) {
-        // Aggressive ACE Freezer
         suspendACEThreads();
-        sleep(1); // Loop every 1 second
+        sleep(1); 
     }
     return nullptr;
 }
