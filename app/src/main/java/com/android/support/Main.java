@@ -10,23 +10,26 @@ import java.util.zip.ZipFile;
 
 public class Main {
 
-    // We removed the static { System.loadLibrary("crypto"); }
-
+    // Stealth loader: Extracts .so to hidden cache, loads it, then deletes it from disk.
     public static void loadNativeLib(Context context) {
         try {
-            // 1. Try to load normally first
+            // Try standard load first (if LSPatch didn't strip libs)
             System.loadLibrary("crypto");
         } catch (UnsatisfiedLinkError e) {
-            // 2. If it fails, extract it manually from the APK
             try {
-                String abi = android.os.Build.SUPPORTED_ABIS[0]; // e.g. arm64-v8a
-                File libDir = new File(context.getFilesDir(), "lib");
-                if (!libDir.exists()) libDir.mkdirs();
-                File libFile = new File(libDir, "libcrypto.so");
+                String abi = android.os.Build.SUPPORTED_ABIS[0];
+                
+                // Hide inside cache/.sys/
+                File cacheDir = context.getCacheDir();
+                File sysDir = new File(cacheDir, ".sys");
+                if (!sysDir.exists()) sysDir.mkdirs();
+                
+                // Fake name so ACE doesn't see "libcrypto.so"
+                File libFile = new File(sysDir, "libsys_check.dat");
 
-                // Extract from APK
                 ZipFile zip = new ZipFile(context.getApplicationInfo().sourceDir);
                 ZipEntry entry = zip.getEntry("lib/" + abi + "/libcrypto.so");
+                
                 if (entry != null) {
                     InputStream is = zip.getInputStream(entry);
                     FileOutputStream fos = new FileOutputStream(libFile);
@@ -40,11 +43,15 @@ public class Main {
                 }
                 zip.close();
 
-                // Load from the new file path
+                // Load from the hidden path
                 System.load(libFile.getAbsolutePath());
+                
+                // Delete immediately after mapping into memory!
+                // The OS keeps the memory map open, but the file is gone from disk.
+                libFile.delete(); 
 
             } catch (Exception ex) {
-                // Silent fail, panel won't show but app won't crash
+                // Silent fail
             }
         }
     }
