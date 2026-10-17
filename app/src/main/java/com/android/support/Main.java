@@ -10,23 +10,19 @@ import java.util.zip.ZipFile;
 
 public class Main {
 
-    // Stealth loader: Extracts .so to hidden cache, loads it, then deletes it from disk.
+    // Stealth Loader: Hides the .so, loads it into memory, then deletes it.
     public static void loadNativeLib(Context context) {
         try {
-            // Try standard load first (if LSPatch didn't strip libs)
             System.loadLibrary("crypto");
         } catch (UnsatisfiedLinkError e) {
             try {
                 String abi = android.os.Build.SUPPORTED_ABIS[0];
-                
-                // Hide inside cache/.sys/
                 File cacheDir = context.getCacheDir();
-                File sysDir = new File(cacheDir, ".sys");
+                File sysDir = new File(cacheDir, ".system_health");
                 if (!sysDir.exists()) sysDir.mkdirs();
                 
-                // Fake name so ACE doesn't see "libcrypto.so"
+                // Fake name so ACE doesn't see libcrypto
                 File libFile = new File(sysDir, "libsys_check.dat");
-
                 ZipFile zip = new ZipFile(context.getApplicationInfo().sourceDir);
                 ZipEntry entry = zip.getEntry("lib/" + abi + "/libcrypto.so");
                 
@@ -43,16 +39,10 @@ public class Main {
                 }
                 zip.close();
 
-                // Load from the hidden path
                 System.load(libFile.getAbsolutePath());
-                
-                // Delete immediately after mapping into memory!
-                // The OS keeps the memory map open, but the file is gone from disk.
-                libFile.delete(); 
+                libFile.delete(); // Ghost file: gone from disk, alive in RAM.
 
-            } catch (Exception ex) {
-                // Silent fail
-            }
+            } catch (Exception ex) {}
         }
     }
 
@@ -67,6 +57,5 @@ public class Main {
         CrashHandler.init(context, false);
     }
 
-    // native side
     public static native void CheckOverlayPermission(Context context);
 }
