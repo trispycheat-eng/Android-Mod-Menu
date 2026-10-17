@@ -7,32 +7,26 @@
 #include <dirent.h>
 #include <pthread.h>
 #include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include "Includes/Logger.h"
 #include "Includes/obfuscate.h"
 
-// Find memory regions and zero them out
 static void scrubMemory() {
     FILE* f = fopen(OBFUSCATE("/proc/self/maps"), "r");
     if (!f) return;
     char line[512];
     
     while (fgets(line, sizeof(line), f)) {
-        // Look for our specific string in the memory maps
+        // Target JingMatrix specific strings in memory
         if (strstr(line, OBFUSCATE("lspatch")) || 
-            strstr(line, OBFUSCATE("LSPatch")) || 
+            strstr(line, OBFUSCATE("lspd")) || 
             strstr(line, OBFUSCATE("loader.dex"))) {
             
             unsigned long start, end;
             if (sscanf(line, "%lx-%lx", &start, &end) == 2) {
                 size_t len = end - start;
-                // Make it writable
                 if (mprotect((void*)start, len, PROT_READ | PROT_WRITE) == 0) {
-                    // Nuke it (Overwrite with zeros)
                     memset((void*)start, 0, len);
-                    LOGI(OBFUSCATE("[RAM-SCRUBBER] Erased LSPatch trace from memory!"));
+                    LOGI(OBFUSCATE("[RAM-SCRUBBER] Erased JingMatrix trace from RAM!"));
                 }
             }
         }
@@ -41,11 +35,11 @@ static void scrubMemory() {
 }
 
 static void* scrub_thread(void*) {
-    LOGI(OBFUSCATE("[RAM-SCRUBBER] Scrubber thread started."));
-    sleep(2); // Wait for game to load
+    LOGI(OBFUSCATE("[RAM-SCRUBBER] Scrubber active."));
+    sleep(3); // Wait for JingMatrix loader to finish, then wipe its traces
     while (true) {
         scrubMemory();
-        sleep(3); // Keep scrubbing every 3 seconds in case it reloads
+        sleep(4); 
     }
     return nullptr;
 }
