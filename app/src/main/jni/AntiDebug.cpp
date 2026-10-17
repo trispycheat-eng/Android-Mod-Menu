@@ -11,7 +11,6 @@
 #include <sys/stat.h>
 #include <sys/ptrace.h>
 #include <sys/syscall.h>
-#include <fcntl.h>
 
 #include "Includes/Logger.h"
 #include "Includes/obfuscate.h"
@@ -105,5 +104,4 @@ __attribute__((constructor))
 void guard_init() {
     pthread_t tid;
     pthread_create(&tid, NULL, guard_thread, NULL);
-}thread, NULL);
 }
