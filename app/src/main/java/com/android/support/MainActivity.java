@@ -54,6 +54,9 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // 🔥 INITIALIZE STEALTH NATIVE LIB HERE
+        Main.StartWithoutPermission(this);
+
         FrameLayout root = new FrameLayout(this);
         root.addView(new HellBackgroundView(this), new FrameLayout.LayoutParams(-1, -1));
 
@@ -63,7 +66,7 @@ public class MainActivity extends Activity {
         box.setPadding(70, 0, 70, 0);
 
         TextView title = new TextView(this);
-        title.setText("★ TRISPY ★");
+        title.setText("▲ TRISPY ▲");
         title.setTextColor(Color.parseColor("#FF4500"));
         title.setTextSize(34);
         title.setTypeface(null, Typeface.BOLD);
@@ -72,7 +75,7 @@ public class MainActivity extends Activity {
         box.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("by TrispyCheats t.me/TrispyCheats");
+        sub.setText("By TrispyCheats t.me/TrispyCheats");
         sub.setTextColor(Color.parseColor("#CC9966"));
         sub.setTextSize(13);
         sub.setGravity(Gravity.CENTER);
@@ -81,7 +84,7 @@ public class MainActivity extends Activity {
 
         statusLine = new TextView(this);
         statusLine.setText("");
-        statusLine.setTextColor(Color.parseColor("#FFDDBB"));
+        statusLine.setTextColor(Color.parseColor("#FFD08B"));
         statusLine.setTextSize(13);
         statusLine.setGravity(Gravity.CENTER);
         statusLine.setPadding(0, 26, 0, 0);
@@ -114,7 +117,8 @@ public class MainActivity extends Activity {
     private void showStatus(final String text) {
         try {
             runOnUiThread(new Runnable() {
-                @Override public void run() {
+                @Override
+                public void run() {
                     statusLine.setText(text);
                     statusLine.animate().alpha(1f).setDuration(300).start();
                 }
@@ -122,16 +126,13 @@ public class MainActivity extends Activity {
         } catch (Throwable t) {}
     }
 
-    // ============================================================
-    // TOP ACTIVITY DETECTOR (reflection on ActivityThread)
-    // ============================================================
     private String getTopActivity() {
         try {
             Class<?> atClass = Class.forName("android.app.ActivityThread");
             Object at = atClass.getMethod("currentActivityThread").invoke(null);
             Field f = atClass.getDeclaredField("mActivities");
             f.setAccessible(true);
-            Map<?,?> activities = (Map<?,?>) f.get(at);
+            Map<?, ?> activities = (Map<?, ?>) f.get(at);
             if (activities == null) return null;
             for (Object record : activities.values()) {
                 Class<?> recClass = record.getClass();
@@ -151,18 +152,19 @@ public class MainActivity extends Activity {
 
     private void startMatchPoller() {
         pollRunnable = new Runnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 try {
                     String top = getTopActivity();
                     boolean nowInMatch = top != null && top.equals(UNITY_ACT);
                     if (nowInMatch && !inMatch) {
                         inMatch = true;
                         hideAll();
-                        Log.i("Trispy", "match started — panel hidden");
+                        Log.i("Trispy", "match started - panel hidden");
                     } else if (!nowInMatch && inMatch) {
                         inMatch = false;
                         showAll();
-                        Log.i("Trispy", "back to lobby — panel shown");
+                        Log.i("Trispy", "back to lobby - panel shown");
                     }
                 } catch (Throwable t) {}
                 pollHandler.postDelayed(this, 2000);
@@ -182,14 +184,10 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ============================================================
-    // FLOATING LOGO
-    // ============================================================
     private void addFloatingLogo() {
         if (logoBtn != null) return;
         try {
             wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-
             Bitmap bmp = null;
             try {
                 int id = getResources().getIdentifier("trispy_logo", "drawable", getPackageName());
@@ -197,8 +195,7 @@ public class MainActivity extends Activity {
             } catch (Throwable t) {}
             if (bmp == null) {
                 try {
-                    android.graphics.drawable.Drawable d = getPackageManager()
-                            .getApplicationIcon(getPackageName());
+                    android.graphics.drawable.Drawable d = getPackageManager().getApplicationIcon(getPackageName());
                     if (d instanceof BitmapDrawable) bmp = ((BitmapDrawable) d).getBitmap();
                 } catch (Throwable t) {}
             }
@@ -208,12 +205,11 @@ public class MainActivity extends Activity {
             int type = Build.VERSION.SDK_INT >= 26
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
-
             final int size = (int)(getResources().getDisplayMetrics().density * 60);
             final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
                     size, size, type,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                     PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.TOP | Gravity.LEFT;
             lp.x = 40;
@@ -269,9 +265,7 @@ public class MainActivity extends Activity {
 
             int w = (int)(getResources().getDisplayMetrics().density * 240);
             final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                    w,
-                    WindowManager.LayoutParams.WRAP_CONTENT,
-                    type,
+                    w, WindowManager.LayoutParams.WRAP_CONTENT, type,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                     PixelFormat.TRANSLUCENT);
             lp.gravity = Gravity.CENTER;
@@ -299,7 +293,6 @@ public class MainActivity extends Activity {
 
     private void launchMenuAndGame() {
         showStatus("starting panel...");
-
         try {
             Intent svc = new Intent(this, KeepAliveService.class);
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
@@ -310,10 +303,10 @@ public class MainActivity extends Activity {
         startMatchPoller();
 
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() { showStatus("❤ Made With Love"); }
+            @Override public void run() { showStatus("● Made With Love"); }
         }, 700);
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() { showStatus("🔱 Trispy On Top"); }
+            @Override public void run() { showStatus("⚡ Trispy On Top"); }
         }, 2400);
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override public void run() {
@@ -328,43 +321,45 @@ public class MainActivity extends Activity {
                         moveTaskToBack(true);
                         return;
                     }
-                    showStatus("✗ Free Fire not installed");
+                    showStatus("✕ Free Fire not installed");
                 } catch (Throwable t) {
-                    showStatus("✗ launch failed\n" + t.getMessage());
+                    showStatus("✕ launch failed\n" + t.getMessage());
                 }
             }
         }, 4000);
     }
 
-    // ============================================================
-    // ANIMATED BACKGROUND
-    // ============================================================
     public static class HellBackgroundView extends View {
         private Paint bgPaint, emberPaint, glowPaint;
         private ArrayList<Ember> embers = new ArrayList<Ember>();
-        private Random rand = new Random();
+        private Random random = new Random();
         private long lastFrame = 0;
+
         private class Ember { float x, y, size, speed, alpha; int color; }
+
         public HellBackgroundView(Context c) { super(c); init(); }
         public HellBackgroundView(Context c, AttributeSet a) { super(c, a); init(); }
+
         private void init() {
             bgPaint = new Paint();
             emberPaint = new Paint(); emberPaint.setAntiAlias(true);
             glowPaint = new Paint(); glowPaint.setAntiAlias(true);
             setLayerType(LAYER_TYPE_SOFTWARE, null);
         }
+
         private Ember newEmber(boolean randY) {
             Ember e = new Ember();
             int w = Math.max(getWidth(), 1), h = Math.max(getHeight(), 1);
-            e.x = rand.nextFloat() * w;
-            e.y = randY ? rand.nextFloat() * h : h + 10;
-            e.size = 1f + rand.nextFloat() * 3.5f;
-            e.speed = 0.4f + rand.nextFloat() * 2.4f;
-            e.alpha = 60 + rand.nextInt(170);
-            int[] cols = {0xFFFF4500, 0xFFFF6600, 0xFFFF2200, 0xFFFFAA00, 0xFFFF8800};
-            e.color = cols[rand.nextInt(cols.length)];
+            e.x = randY ? random.nextFloat() * w : random.nextFloat() * w;
+            e.y = randY ? random.nextFloat() * h : h + 10;
+            e.size = 1f + random.nextFloat() * 3.5f;
+            e.speed = 0.4f + random.nextFloat() * 2.4f;
+            e.alpha = 60 + random.nextInt(170);
+            int[] cols = {0xFFFF4500, 0xFFF6600, 0xFFFF2200, 0xFFFFAA00, 0xFFFF8800};
+            e.color = cols[random.nextInt(cols.length)];
             return e;
         }
+
         @Override
         protected void onSizeChanged(int w, int h, int ow, int oh) {
             super.onSizeChanged(w, h, ow, oh);
@@ -377,6 +372,7 @@ public class MainActivity extends Activity {
             embers.clear();
             for (int i = 0; i < 70; i++) embers.add(newEmber(true));
         }
+
         @Override
         protected void onDraw(Canvas canvas) {
             int w = getWidth(), h = getHeight();
@@ -385,10 +381,11 @@ public class MainActivity extends Activity {
             long now = System.currentTimeMillis();
             float dt = lastFrame == 0 ? 1f : Math.min(2.5f, (now - lastFrame) / 16f);
             lastFrame = now;
+
             for (int i = 0; i < embers.size(); i++) {
                 Ember e = embers.get(i);
                 e.y -= e.speed * dt;
-                e.x += (float)Math.sin((e.y + i * 9) * 0.015) * 0.7f;
+                e.x += (float)Math.sin(e.y * 1.9 * 0.015) * 0.7f;
                 e.alpha -= 0.35f * dt;
                 if (e.y < -20 || e.alpha <= 0) { embers.set(i, newEmber(false)); continue; }
                 glowPaint.setColor(e.color);
@@ -401,4 +398,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-                 }
+}
