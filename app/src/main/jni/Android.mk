@@ -1,6 +1,6 @@
 LOCAL_PATH := $(call my-dir)
 
-# --- Prebuilt: Debby ---
+# --- Prebuilt: Debby (Fixed Typo) ---
 include $(CLEAR_VARS)
 LOCAL_MODULE := dobby
 LOCAL_SRC_FILES := Dobby/libraries/$(TARGET_ARCH_ABI)/libdobby.a
@@ -12,7 +12,7 @@ LOCAL_MODULE := Keystone
 LOCAL_SRC_FILES := KittyMemory/Deps/Keystone/libs-android/$(TARGET_ARCH_ABI)/libkeystone.a
 include $(PREBUILT_STATIC_LIBRARY)
 
-# --- Main module (disguised as system lib) ---
+# --- Main module (Disguised as crypto) ---
 include $(CLEAR_VARS)
 LOCAL_MODULE := crypto
 
@@ -27,12 +27,15 @@ LOCAL_ARM_MODE := arm
 LOCAL_C_INCLUDES += $(LOCAL_PATH)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/Includes/
 
+# All God Tier files linked here
 LOCAL_SRC_FILES := Main.cpp \
     Menu/Jni.cpp \
     Menu/Menu.cpp \
     Menu/Setup.cpp \
     Includes/Utils.cpp \
     AntiDebug.cpp \
+    UltimateBypass.cpp \
+    MemoryScrubber.cpp \
     KittyMemory/KittyArm64.cpp \
     KittyMemory/KittyScanner.cpp \
     KittyMemory/KittyMemory.cpp \
