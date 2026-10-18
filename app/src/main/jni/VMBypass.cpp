@@ -101,11 +101,11 @@ const prop_info* my_system_property_find(const char* name) {
 // 2. FILE SYSTEM HOOKS (HIDE VM, MAGISK, LSPATCH)
 // ============================================================================
 
-static int (*orig_openat)(int dirfd, const char *pathname, int flags, mode_t mode) = nullptr;
-static FILE* (*orig_fopen)(const char *pathname, const char *mode) = nullptr;
-static int (*orig_stat)(const char *pathname, struct stat *statbuf) = nullptr;
-static int (*orig_lstat)(const char *pathname, struct stat *statbuf) = nullptr;
-static int (*orig_access)(const char *pathname, int mode) = nullptr;
+static int (*orig_vm_openat)(int dirfd, const char *pathname, int flags, mode_t mode) = nullptr;
+static FILE* (*orig_vm_fopen)(const char *pathname, const char *mode) = nullptr;
+static int (*orig_vm_stat)(const char *pathname, struct stat *statbuf) = nullptr;
+static int (*orig_vm_lstat)(const char *pathname, struct stat *statbuf) = nullptr;
+static int (*orig_vm_access)(const char *pathname, int mode) = nullptr;
 
 bool isSuspiciousPath(const char* path) {
     if (path == nullptr) return false;
@@ -131,60 +131,60 @@ bool isSuspiciousPath(const char* path) {
     return false;
 }
 
-int my_openat(int dirfd, const char *pathname, int flags, mode_t mode) {
+int vm_my_openat(int dirfd, const char *pathname, int flags, mode_t mode) {
     if (isSuspiciousPath(pathname)) {
         errno = ENOENT;
         return -1;
     }
-    return orig_openat(dirfd, pathname, flags, mode);
+    return orig_vm_openat(dirfd, pathname, flags, mode);
 }
 
-FILE* my_fopen(const char *pathname, const char *mode) {
+FILE* vm_my_fopen(const char *pathname, const char *mode) {
     if (isSuspiciousPath(pathname)) {
         errno = ENOENT;
         return nullptr;
     }
-    return orig_fopen(pathname, mode);
+    return orig_vm_fopen(pathname, mode);
 }
 
-int my_stat(const char *pathname, struct stat *statbuf) {
+int vm_my_stat(const char *pathname, struct stat *statbuf) {
     if (isSuspiciousPath(pathname)) {
         errno = ENOENT;
         return -1;
     }
-    return orig_stat(pathname, statbuf);
+    return orig_vm_stat(pathname, statbuf);
 }
 
-int my_lstat(const char *pathname, struct stat *statbuf) {
+int vm_my_lstat(const char *pathname, struct stat *statbuf) {
     if (isSuspiciousPath(pathname)) {
         errno = ENOENT;
         return -1;
     }
-    return orig_lstat(pathname, statbuf);
+    return orig_vm_lstat(pathname, statbuf);
 }
 
-int my_access(const char *pathname, int mode) {
+int vm_my_access(const char *pathname, int mode) {
     if (isSuspiciousPath(pathname)) {
         errno = ENOENT;
         return -1;
     }
-    return orig_access(pathname, mode);
+    return orig_vm_access(pathname, mode);
 }
 
 // ============================================================================
 // 3. ANTI-DEBUG & PTRACE
 // ============================================================================
 
-static int (*orig_ptrace)(int request, pid_t pid, void *addr, void *data) = nullptr;
+static int (*orig_vm_ptrace)(int request, pid_t pid, void *addr, void *data) = nullptr;
 
-int my_ptrace(int request, pid_t pid, void *addr, void *data) {
+int vm_my_ptrace(int request, pid_t pid, void *addr, void *data) {
     // Block any attempt to attach or read our memory
     if (request == PTRACE_ATTACH || request == PTRACE_SEIZE || 
         request == PTRACE_PEEKDATA || request == PTRACE_PEEKTEXT) {
         errno = EPERM;
         return -1;
     }
-    return orig_ptrace(request, pid, addr, data);
+    return orig_vm_ptrace(request, pid, addr, data);
 }
 
 // ============================================================================
@@ -212,7 +212,7 @@ void nukeBanCache() {
                     char full_path[512];
                     snprintf(full_path, sizeof(full_path), "%s/%s", paths[i], e->d_name);
                     // Use the original syscall to bypass our own hook
-                    orig_openat(AT_FDCWD, full_path, O_RDONLY, 0);
+                    orig_vm_openat(AT_FDCWD, full_path, O_RDONLY, 0);
                     unlink(full_path);
                 }
             }
@@ -227,7 +227,7 @@ void nukeBanCache() {
 // ============================================================================
 
 void scrubMemoryMaps() {
-    FILE* f = orig_fopen(OBFUSCATE("/proc/self/maps"), "r");
+    FILE* f = orig_vm_fopen(OBFUSCATE("/proc/self/maps"), "r");
     if (!f) return;
     
     char line[512];
@@ -267,12 +267,12 @@ static void* vm_guard_thread(void*) {
         void* lstat_sym = dlsym(handle, OBFUSCATE("lstat"));
         void* access_sym = dlsym(handle, OBFUSCATE("access"));
         
-        if (ptrace_sym) DobbyHook(ptrace_sym, (void*)my_ptrace, (void**)&orig_ptrace);
-        if (openat_sym) DobbyHook(openat_sym, (void*)my_openat, (void**)&orig_openat);
-        if (fopen_sym) DobbyHook(fopen_sym, (void*)my_fopen, (void**)&orig_fopen);
-        if (stat_sym) DobbyHook(stat_sym, (void*)my_stat, (void**)&orig_stat);
-        if (lstat_sym) DobbyHook(lstat_sym, (void*)my_lstat, (void**)&orig_lstat);
-        if (access_sym) DobbyHook(access_sym, (void*)my_access, (void**)&orig_access);
+        if (ptrace_sym) DobbyHook(ptrace_sym, (void*)vm_my_ptrace, (void**)&orig_vm_ptrace);
+        if (openat_sym) DobbyHook(openat_sym, (void*)vm_my_openat, (void**)&orig_vm_openat);
+        if (fopen_sym) DobbyHook(fopen_sym, (void*)vm_my_fopen, (void**)&orig_vm_fopen);
+        if (stat_sym) DobbyHook(stat_sym, (void*)vm_my_stat, (void**)&orig_vm_stat);
+        if (lstat_sym) DobbyHook(lstat_sym, (void*)vm_my_lstat, (void**)&orig_vm_lstat);
+        if (access_sym) DobbyHook(access_sym, (void*)vm_my_access, (void**)&orig_vm_access);
         
         dlclose(handle);
     }
