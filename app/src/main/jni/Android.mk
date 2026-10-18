@@ -1,17 +1,12 @@
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := dobby
-LOCAL_SRC_FILES := Dobby/libraries/$(TARGET_ARCH_ABI)/libdobby.a
-include $(PREBUILT_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
 LOCAL_MODULE := Keystone
 LOCAL_SRC_FILES := KittyMemory/Deps/Keystone/libs-android/$(TARGET_ARCH_ABI)/libkeystone.a
 include $(PREBUILT_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := crypto
+LOCAL_MODULE := jni
 
 LOCAL_CFLAGS := -w -s -Wno-error=format-security -fvisibility=hidden -fpermissive -fexceptions
 LOCAL_CPPFLAGS := -w -s -Wno-error=format-security -fvisibility=hidden -Werror -std=c++17
@@ -38,5 +33,5 @@ LOCAL_SRC_FILES := Main.cpp \
     KittyMemory/MemoryPatch.cpp \
     KittyMemory/MemoryBackup.cpp
 
-LOCAL_STATIC_LIBRARIES := Keystone dobby
+LOCAL_STATIC_LIBRARIES := Keystone
 include $(BUILD_SHARED_LIBRARY)
