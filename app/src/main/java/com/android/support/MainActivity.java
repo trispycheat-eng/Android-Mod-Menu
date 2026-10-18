@@ -1,15 +1,11 @@
 package com.android.support;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -41,41 +37,35 @@ public class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         root.addView(title);
 
-        TextView sub = new TextView(this);
-        sub.setText("VM Mobile Spoofer & Bypass");
-        sub.setTextColor(Color.parseColor("#CC9966"));
-        sub.setTextSize(14);
-        sub.setGravity(Gravity.CENTER);
-        sub.setPadding(0, 10, 0, 50);
-        root.addView(sub);
-
         Button injectBtn = new Button(this);
         injectBtn.setText("INJECT & LAUNCH");
         injectBtn.setTextSize(18);
         injectBtn.setBackgroundColor(Color.parseColor("#FF2200"));
         injectBtn.setTextColor(Color.WHITE);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, 50, 0, 0);
         injectBtn.setLayoutParams(params);
         
         injectBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                injectBtn.setText("SPOOFING DEVICE...");
+                injectBtn.setText("INJECTING...");
                 v.setEnabled(false);
                 
-                // 1. Nuke Ban Cache
-                nukeBanCache();
-                
-                // 2. Spoof Device (PC Logo Bypass)
-                spoofProperties();
-                
-                // 3. Start Panel & Game
-                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                // Run spoofing in background to prevent freeze
+                new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        startPanelAndGame();
+                        nukeBanCache();
+                        spoofProperties();
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                startPanelAndGame();
+                            }
+                        });
                     }
-                }, 1500);
+                }).start();
             }
         });
         root.addView(injectBtn);
@@ -98,7 +88,14 @@ public class MainActivity extends Activity {
                 writer.write(prop + "\n");
             }
             writer.close();
-            Toast.makeText(this, "Device Spoofed to Samsung S21", Toast.LENGTH_SHORT).show();
+            // Give it a second to apply
+            Thread.sleep(1000);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, "Device Spoofed to Samsung S21", Toast.LENGTH_SHORT).show();
+                }
+            });
         } catch (Exception e) {}
     }
 
