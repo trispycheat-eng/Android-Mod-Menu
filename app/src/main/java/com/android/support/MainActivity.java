@@ -25,6 +25,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -91,6 +92,26 @@ public class MainActivity extends Activity {
         statusLine.setAlpha(0f);
         box.addView(statusLine);
 
+        // 🔥 NEW INJECT BUTTON FOR VM
+        Button injectBtn = new Button(this);
+        injectBtn.setText("INJECT PANEL & LAUNCH");
+        injectBtn.setTextSize(16);
+        injectBtn.setBackgroundColor(Color.parseColor("#FF2200"));
+        injectBtn.setTextColor(Color.WHITE);
+        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(-1, -2);
+        btnParams.setMargins(0, 50, 0, 0);
+        injectBtn.setLayoutParams(btnParams);
+        
+        injectBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ((Button)v).setText("INJECTING...");
+                v.setEnabled(false);
+                launchMenuAndGame();
+            }
+        });
+        box.addView(injectBtn);
+
         root.addView(box);
         setContentView(root);
         afterUnlock();
@@ -102,16 +123,13 @@ public class MainActivity extends Activity {
                 startActivityForResult(new Intent(
                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:" + getPackageName())), OVERLAY_REQ);
-            } catch (Throwable t) { launchMenuAndGame(); }
-        } else {
-            launchMenuAndGame();
+            } catch (Throwable t) { showStatus("Overlay failed"); }
         }
     }
 
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
-        if (req == OVERLAY_REQ) launchMenuAndGame();
     }
 
     private void showStatus(final String text) {
@@ -305,9 +323,7 @@ public class MainActivity extends Activity {
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override public void run() { showStatus("● Made With Love"); }
         }, 700);
-        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() { showStatus("⚡ Trispy On Top"); }
-        }, 2400);
+        
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override public void run() {
                 if (hasLaunched) return;
@@ -326,7 +342,7 @@ public class MainActivity extends Activity {
                     showStatus("✕ launch failed\n" + t.getMessage());
                 }
             }
-        }, 4000);
+        }, 2000); // 2 second delay so the panel loads first
     }
 
     public static class HellBackgroundView extends View {
@@ -398,4 +414,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-}
+                }
