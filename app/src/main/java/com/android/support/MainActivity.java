@@ -55,7 +55,6 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 🔥 INITIALIZE STEALTH NATIVE LIB HERE
         Main.StartWithoutPermission(this);
 
         FrameLayout root = new FrameLayout(this);
@@ -92,7 +91,6 @@ public class MainActivity extends Activity {
         statusLine.setAlpha(0f);
         box.addView(statusLine);
 
-        // 🔥 NEW INJECT BUTTON FOR VM
         Button injectBtn = new Button(this);
         injectBtn.setText("INJECT PANEL & LAUNCH");
         injectBtn.setTextSize(16);
@@ -119,8 +117,187 @@ public class MainActivity extends Activity {
 
     private void afterUnlock() {
         if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(this)) {
-            
+            try {
+                startActivityForResult(new Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName())), OVERLAY_REQ);
+            } catch (Throwable t) { showStatus("Overlay failed"); }
+        }
+    }
 
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+    }
+
+    private void showStatus(final String text) {
+        try {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    statusLine.setText(text);
+                    statusLine.animate().alpha(1f).setDuration(300).start();
+                }
+            });
+        } catch (Throwable t) {}
+    }
+
+    private String getTopActivity() {
+        try {
+            Class<?> atClass = Class.forName("android.app.ActivityThread");
+            Object at = atClass.getMethod("currentActivityThread").invoke(null);
+            Field f = atClass.getDeclaredField("mActivities");
+            f.setAccessible(true);
+            Map<?, ?> activities = (Map<?, ?>) f.get(at);
+            if (activities == null) return null;
+            for (Object record : activities.values()) {
+                Class<?> recClass = record.getClass();
+                Field pausedField = recClass.getDeclaredField("paused");
+                pausedField.setAccessible(true);
+                boolean paused = pausedField.getBoolean(record);
+                if (!paused) {
+                    Field actField = recClass.getDeclaredField("activity");
+                    actField.setAccessible(true);
+                    Activity a = (Activity) actField.get(record);
+                    return a.getClass().getName();
+                }
+            }
+        } catch (Throwable t) {}
+        return null;
+    }
+
+    private void startMatchPoller() {
+        pollRunnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String top = getTopActivity();
+                    boolean nowInMatch = top != null && top.equals(UNITY_ACT);
+                    if (nowInMatch && !inMatch) {
+                        inMatch = true;
+                        hideAll();
+                    } else if (!nowInMatch && inMatch) {
+                        inMatch = false;
+                        showAll();
+                    }
+                } catch (Throwable t) {}
+                pollHandler.postDelayed(this, 2000);
+            }
+        };
+        pollHandler.postDelayed(pollRunnable, 3000);
+    }
+
+    private void hideAll() {
+        try { if (menuPanel != null) { wm.removeView(menuPanel); menuPanel = null; } } catch (Throwable t) {}
+        try { if (logoBtn != null) { wm.removeView(logoBtn); } } catch (Throwable t) {}
+    }
+
+    private void showAll() {
+        if (logoBtn != null && logoBtn.getParent() == null) {
+            try { wm.addView(logoBtn, logoBtn.getLayoutParams()); } catch (Throwable t) {}
+        }
+    }
+
+    private void addFloatingLogo() {
+        if (logoBtn != null) return;
+        try {
+            wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+            Bitmap bmp = null;
+            try {
+                int id = getResources().getIdentifier("trispy_logo", "drawable", getPackageName());
+                if (id != 0) bmp = BitmapFactory.decodeResource(getResources(), id);
+            } catch (Throwable t) {}
+            
+            final CircularLogoView logo = new CircularLogoView(this, bmp);
+
+            int type = Build.VERSION.SDK_INT >= 26
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
+            final int size = (int)(getResources().getDisplayMetrics().density * 60);
+            final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                    size, size, type,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                    PixelFormat.TRANSLUCENT);
+            lp.gravity = Gravity.TOP | Gravity.LEFT;
+            lp.x = 40;
+            lp.y = 350;
+
+            final long[] downTime = {0};
+            final boolean[] dragged = {false};
+
+            logo.setOnTouchListener(new View.OnTouchListener() {
+                int ix, iy;
+                float tx, ty;
+                @Override public boolean onTouch(View v, MotionEvent e) {
+                    switch (e.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            ix = lp.x; iy = lp.y;
+                            tx = e.getRawX(); ty = e.getRawY();
+                            downTime[0] = System.currentTimeMillis();
+                            dragged[0] = false;
+                            return true;
+                        case MotionEvent.ACTION_MOVE:
+                            int dx = (int)(e.getRawX() - tx);
+                            int dy = (int)(e.getRawY() - ty);
+                            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) dragged[0] = true;
+                            lp.x = ix + dx;
+                            lp.y = iy + dy;
+                            try { wm.updateViewLayout(v, lp); } catch (Throwable t) {}
+                            return true;
+                        case MotionEvent.ACTION_UP:
+                            long dur = System.currentTimeMillis() - downTime[0];
+                            if (!dragged[0] && dur < 400) toggleMenu();
+                            return true;
+                    }
+                    return false;
+                }
+            });
+
+            wm.addView(logo, lp);
+            logoBtn = logo;
+        } catch (Throwable t) {}
+    }
+
+    private void toggleMenu() {
+        if (menuPanel != null) hideMenu(); else showMenu();
+    }
+
+    private void showMenu() {
+        try {
+            int type = Build.VERSION.SDK_INT >= 26
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
+
+            int w = (int)(getResources().getDisplayMetrics().density * 240);
+            final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                    w, WindowManager.LayoutParams.WRAP_CONTENT, type,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT);
+            lp.gravity = Gravity.CENTER;
+
+            final FloatingMenuView panel = new FloatingMenuView(this, wm, lp,
+                    new FloatingMenuView.OnClose() {
+                        @Override public void onClose() { hideMenu(); }
+                    });
+
+            wm.addView(panel, lp);
+            menuPanel = panel;
+        } catch (Throwable t) {}
+    }
+
+    private void hideMenu() {
+        try {
+            if (menuPanel != null) {
+                wm.removeView(menuPanel);
+                menuPanel = null;
+            }
+        } catch (Throwable t) {}
+    }
+
+    private void launchMenuAndGame() {
+        showStatus("starting panel...");
+        
         addFloatingLogo();
         startMatchPoller();
 
@@ -129,7 +306,8 @@ public class MainActivity extends Activity {
         }, 700);
         
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 if (hasLaunched) return;
                 hasLaunched = true;
                 try {
@@ -143,10 +321,10 @@ public class MainActivity extends Activity {
                     }
                     showStatus("✕ Free Fire not installed");
                 } catch (Throwable t) {
-                    showStatus("✕ launch failed\n" + t.getMessage());
+                    showStatus("✕ launch failed");
                 }
             }
-        }, 2000); // 2 second delay so the panel loads first
+        }, 1500);
     }
 
     public static class HellBackgroundView extends View {
@@ -218,4 +396,4 @@ public class MainActivity extends Activity {
             invalidate();
         }
     }
-                }
+            }
