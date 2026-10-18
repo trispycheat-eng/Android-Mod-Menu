@@ -3,397 +3,134 @@ package com.android.support;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
-import android.graphics.Paint;
-import android.graphics.PixelFormat;
-import android.graphics.Shader;
-import android.graphics.Typeface;
-import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.util.AttributeSet;
-import android.util.Log;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Random;
+import java.io.File;
+import java.io.OutputStreamWriter;
 
 public class MainActivity extends Activity {
-
-    private static final int OVERLAY_REQ = 1002;
     private static final String FF_MAX = "com.dts.freefiremax";
     private static final String FF_NORMAL = "com.dts.freefireth";
-    private static final String UNITY_ACT = "com.unity3d.player.UnityPlayerActivity";
-
-    public boolean hasLaunched = false;
-    private TextView statusLine;
-    private WindowManager wm;
-    private View logoBtn;
-    private View menuPanel;
-    private boolean inMatch = false;
-    private Handler pollHandler = new Handler(Looper.getMainLooper());
-    private Runnable pollRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Main.StartWithoutPermission(this);
-
-        FrameLayout root = new FrameLayout(this);
-        root.addView(new HellBackgroundView(this), new FrameLayout.LayoutParams(-1, -1));
-
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.CENTER);
-        box.setPadding(70, 0, 70, 0);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundColor(Color.parseColor("#0a0000"));
+        root.setPadding(60, 60, 60, 60);
 
         TextView title = new TextView(this);
-        title.setText("▲ TRISPY ▲");
+        title.setText("▲ TRISPY VM ▲");
         title.setTextColor(Color.parseColor("#FF4500"));
         title.setTextSize(34);
-        title.setTypeface(null, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
-        title.setShadowLayer(18, 0, 0, Color.parseColor("#FF2200"));
-        box.addView(title);
+        root.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("By TrispyCheats t.me/TrispyCheats");
+        sub.setText("VM Mobile Spoofer & Bypass");
         sub.setTextColor(Color.parseColor("#CC9966"));
-        sub.setTextSize(13);
+        sub.setTextSize(14);
         sub.setGravity(Gravity.CENTER);
-        sub.setPadding(0, 12, 0, 44);
-        box.addView(sub);
-
-        statusLine = new TextView(this);
-        statusLine.setText("");
-        statusLine.setTextColor(Color.parseColor("#FFD08B"));
-        statusLine.setTextSize(13);
-        statusLine.setGravity(Gravity.CENTER);
-        statusLine.setPadding(0, 26, 0, 0);
-        statusLine.setAlpha(0f);
-        box.addView(statusLine);
+        sub.setPadding(0, 10, 0, 50);
+        root.addView(sub);
 
         Button injectBtn = new Button(this);
-        injectBtn.setText("INJECT PANEL & LAUNCH");
-        injectBtn.setTextSize(16);
+        injectBtn.setText("INJECT & LAUNCH");
+        injectBtn.setTextSize(18);
         injectBtn.setBackgroundColor(Color.parseColor("#FF2200"));
         injectBtn.setTextColor(Color.WHITE);
-        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(-1, -2);
-        btnParams.setMargins(0, 50, 0, 0);
-        injectBtn.setLayoutParams(btnParams);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        injectBtn.setLayoutParams(params);
         
         injectBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ((Button)v).setText("INJECTING...");
+                injectBtn.setText("SPOOFING DEVICE...");
                 v.setEnabled(false);
-                launchMenuAndGame();
+                
+                // 1. Nuke Ban Cache
+                nukeBanCache();
+                
+                // 2. Spoof Device (PC Logo Bypass)
+                spoofProperties();
+                
+                // 3. Start Panel & Game
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        startPanelAndGame();
+                    }
+                }, 1500);
             }
         });
-        box.addView(injectBtn);
-
-        root.addView(box);
+        root.addView(injectBtn);
         setContentView(root);
-        afterUnlock();
     }
 
-    private void afterUnlock() {
-        if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(this)) {
-            try {
-                startActivityForResult(new Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:" + getPackageName())), OVERLAY_REQ);
-            } catch (Throwable t) { showStatus("Overlay failed"); }
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int req, int res, Intent data) {
-        super.onActivityResult(req, res, data);
-    }
-
-    private void showStatus(final String text) {
-        try {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    statusLine.setText(text);
-                    statusLine.animate().alpha(1f).setDuration(300).start();
-                }
-            });
-        } catch (Throwable t) {}
-    }
-
-    private String getTopActivity() {
-        try {
-            Class<?> atClass = Class.forName("android.app.ActivityThread");
-            Object at = atClass.getMethod("currentActivityThread").invoke(null);
-            Field f = atClass.getDeclaredField("mActivities");
-            f.setAccessible(true);
-            Map<?, ?> activities = (Map<?, ?>) f.get(at);
-            if (activities == null) return null;
-            for (Object record : activities.values()) {
-                Class<?> recClass = record.getClass();
-                Field pausedField = recClass.getDeclaredField("paused");
-                pausedField.setAccessible(true);
-                boolean paused = pausedField.getBoolean(record);
-                if (!paused) {
-                    Field actField = recClass.getDeclaredField("activity");
-                    actField.setAccessible(true);
-                    Activity a = (Activity) actField.get(record);
-                    return a.getClass().getName();
-                }
-            }
-        } catch (Throwable t) {}
-        return null;
-    }
-
-    private void startMatchPoller() {
-        pollRunnable = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    String top = getTopActivity();
-                    boolean nowInMatch = top != null && top.equals(UNITY_ACT);
-                    if (nowInMatch && !inMatch) {
-                        inMatch = true;
-                        hideAll();
-                    } else if (!nowInMatch && inMatch) {
-                        inMatch = false;
-                        showAll();
-                    }
-                } catch (Throwable t) {}
-                pollHandler.postDelayed(this, 2000);
-            }
+    private void spoofProperties() {
+        String[] props = {
+            "setprop ro.product.model SM-G998B",
+            "setprop ro.product.brand samsung",
+            "setprop ro.product.manufacturer samsung",
+            "setprop ro.hardware exynos2100",
+            "setprop ro.kernel.qemu 0",
+            "setprop ro.vphonegaga 0"
         };
-        pollHandler.postDelayed(pollRunnable, 3000);
-    }
-
-    private void hideAll() {
-        try { if (menuPanel != null) { wm.removeView(menuPanel); menuPanel = null; } } catch (Throwable t) {}
-        try { if (logoBtn != null) { wm.removeView(logoBtn); } } catch (Throwable t) {}
-    }
-
-    private void showAll() {
-        if (logoBtn != null && logoBtn.getParent() == null) {
-            try { wm.addView(logoBtn, logoBtn.getLayoutParams()); } catch (Throwable t) {}
-        }
-    }
-
-    private void addFloatingLogo() {
-        if (logoBtn != null) return;
         try {
-            wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-            Bitmap bmp = null;
-            try {
-                int id = getResources().getIdentifier("trispy_logo", "drawable", getPackageName());
-                if (id != 0) bmp = BitmapFactory.decodeResource(getResources(), id);
-            } catch (Throwable t) {}
-            
-            final CircularLogoView logo = new CircularLogoView(this, bmp);
-
-            int type = Build.VERSION.SDK_INT >= 26
-                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                    : WindowManager.LayoutParams.TYPE_PHONE;
-            final int size = (int)(getResources().getDisplayMetrics().density * 60);
-            final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                    size, size, type,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                            | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-                    PixelFormat.TRANSLUCENT);
-            lp.gravity = Gravity.TOP | Gravity.LEFT;
-            lp.x = 40;
-            lp.y = 350;
-
-            final long[] downTime = {0};
-            final boolean[] dragged = {false};
-
-            logo.setOnTouchListener(new View.OnTouchListener() {
-                int ix, iy;
-                float tx, ty;
-                @Override public boolean onTouch(View v, MotionEvent e) {
-                    switch (e.getAction()) {
-                        case MotionEvent.ACTION_DOWN:
-                            ix = lp.x; iy = lp.y;
-                            tx = e.getRawX(); ty = e.getRawY();
-                            downTime[0] = System.currentTimeMillis();
-                            dragged[0] = false;
-                            return true;
-                        case MotionEvent.ACTION_MOVE:
-                            int dx = (int)(e.getRawX() - tx);
-                            int dy = (int)(e.getRawY() - ty);
-                            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) dragged[0] = true;
-                            lp.x = ix + dx;
-                            lp.y = iy + dy;
-                            try { wm.updateViewLayout(v, lp); } catch (Throwable t) {}
-                            return true;
-                        case MotionEvent.ACTION_UP:
-                            long dur = System.currentTimeMillis() - downTime[0];
-                            if (!dragged[0] && dur < 400) toggleMenu();
-                            return true;
-                    }
-                    return false;
-                }
-            });
-
-            wm.addView(logo, lp);
-            logoBtn = logo;
-        } catch (Throwable t) {}
-    }
-
-    private void toggleMenu() {
-        if (menuPanel != null) hideMenu(); else showMenu();
-    }
-
-    private void showMenu() {
-        try {
-            int type = Build.VERSION.SDK_INT >= 26
-                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                    : WindowManager.LayoutParams.TYPE_PHONE;
-
-            int w = (int)(getResources().getDisplayMetrics().density * 240);
-            final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                    w, WindowManager.LayoutParams.WRAP_CONTENT, type,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                    PixelFormat.TRANSLUCENT);
-            lp.gravity = Gravity.CENTER;
-
-            final FloatingMenuView panel = new FloatingMenuView(this, wm, lp,
-                    new FloatingMenuView.OnClose() {
-                        @Override public void onClose() { hideMenu(); }
-                    });
-
-            wm.addView(panel, lp);
-            menuPanel = panel;
-        } catch (Throwable t) {}
-    }
-
-    private void hideMenu() {
-        try {
-            if (menuPanel != null) {
-                wm.removeView(menuPanel);
-                menuPanel = null;
+            Process process = Runtime.getRuntime().exec("su");
+            OutputStreamWriter writer = new OutputStreamWriter(process.getOutputStream());
+            for (String prop : props) {
+                writer.write(prop + "\n");
             }
-        } catch (Throwable t) {}
+            writer.close();
+            Toast.makeText(this, "Device Spoofed to Samsung S21", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {}
     }
 
-    private void launchMenuAndGame() {
-        showStatus("starting panel...");
-        
-        addFloatingLogo();
-        startMatchPoller();
-
-        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() { showStatus("● Made With Love"); }
-        }, 700);
-        
-        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (hasLaunched) return;
-                hasLaunched = true;
-                try {
-                    Intent i = getPackageManager().getLaunchIntentForPackage(FF_MAX);
-                    if (i == null) i = getPackageManager().getLaunchIntentForPackage(FF_NORMAL);
-                    if (i != null) {
-                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(i);
-                        moveTaskToBack(true);
-                        return;
+    private void nukeBanCache() {
+        try {
+            File ffDir = new File("/data/data/" + FF_MAX + "/files");
+            if (ffDir.exists()) {
+                File[] files = ffDir.listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        if (f.getName().contains("ban") || f.getName().contains("config") || f.getName().contains("device")) {
+                            f.delete();
+                        }
                     }
-                    showStatus("✕ Free Fire not installed");
-                } catch (Throwable t) {
-                    showStatus("✕ launch failed");
                 }
             }
-        }, 1500);
+        } catch (Exception e) {}
     }
 
-    public static class HellBackgroundView extends View {
-        private Paint bgPaint, emberPaint, glowPaint;
-        private ArrayList<Ember> embers = new ArrayList<Ember>();
-        private Random random = new Random();
-        private long lastFrame = 0;
-
-        private class Ember { float x, y, size, speed, alpha; int color; }
-
-        public HellBackgroundView(Context c) { super(c); init(); }
-        public HellBackgroundView(Context c, AttributeSet a) { super(c, a); init(); }
-
-        private void init() {
-            bgPaint = new Paint();
-            emberPaint = new Paint(); emberPaint.setAntiAlias(true);
-            glowPaint = new Paint(); glowPaint.setAntiAlias(true);
-            setLayerType(LAYER_TYPE_SOFTWARE, null);
-        }
-
-        private Ember newEmber(boolean randY) {
-            Ember e = new Ember();
-            int w = Math.max(getWidth(), 1), h = Math.max(getHeight(), 1);
-            e.x = randY ? random.nextFloat() * w : random.nextFloat() * w;
-            e.y = randY ? random.nextFloat() * h : h + 10;
-            e.size = 1f + random.nextFloat() * 3.5f;
-            e.speed = 0.4f + random.nextFloat() * 2.4f;
-            e.alpha = 60 + random.nextInt(170);
-            int[] cols = {0xFFFF4500, 0xFFF6600, 0xFFFF2200, 0xFFFFAA00, 0xFFFF8800};
-            e.color = cols[random.nextInt(cols.length)];
-            return e;
-        }
-
-        @Override
-        protected void onSizeChanged(int w, int h, int ow, int oh) {
-            super.onSizeChanged(w, h, ow, oh);
-            try {
-                bgPaint.setShader(new LinearGradient(0, 0, 0, h,
-                        new int[]{Color.parseColor("#050000"), Color.parseColor("#1a0000"),
-                                Color.parseColor("#3a0505"), Color.parseColor("#0a0000")},
-                        new float[]{0f, 0.4f, 0.75f, 1f}, Shader.TileMode.CLAMP));
-            } catch (Throwable t) {}
-            embers.clear();
-            for (int i = 0; i < 70; i++) embers.add(newEmber(true));
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            int w = getWidth(), h = getHeight();
-            if (w == 0 || h == 0) return;
-            canvas.drawRect(0, 0, w, h, bgPaint);
-            long now = System.currentTimeMillis();
-            float dt = lastFrame == 0 ? 1f : Math.min(2.5f, (now - lastFrame) / 16f);
-            lastFrame = now;
-
-            for (int i = 0; i < embers.size(); i++) {
-                Ember e = embers.get(i);
-                e.y -= e.speed * dt;
-                e.x += (float)Math.sin(e.y * 1.9 * 0.015) * 0.7f;
-                e.alpha -= 0.35f * dt;
-                if (e.y < -20 || e.alpha <= 0) { embers.set(i, newEmber(false)); continue; }
-                glowPaint.setColor(e.color);
-                glowPaint.setAlpha((int)Math.max(0, e.alpha * 0.25f));
-                canvas.drawCircle(e.x, e.y, e.size * 3.2f, glowPaint);
-                emberPaint.setColor(e.color);
-                emberPaint.setAlpha((int)Math.max(0, e.alpha));
-                canvas.drawCircle(e.x, e.y, e.size, emberPaint);
+    private void startPanelAndGame() {
+        // Show floating logo safely
+        try {
+            Main.StartWithoutPermission(this);
+        } catch (Throwable t) {}
+        
+        try {
+            Intent i = getPackageManager().getLaunchIntentForPackage(FF_MAX);
+            if (i == null) i = getPackageManager().getLaunchIntentForPackage(FF_NORMAL);
+            if (i != null) {
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
             }
-            invalidate();
-        }
+        } catch (Throwable t) {}
     }
-            }
+}

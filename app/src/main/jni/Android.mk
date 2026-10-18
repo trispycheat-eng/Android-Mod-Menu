@@ -17,14 +17,12 @@ LOCAL_LDLIBS := -llog -landroid -lEGL -lGLESv2 -ldl
 LOCAL_ARM_MODE := arm
 LOCAL_C_INCLUDES += $(LOCAL_PATH) $(LOCAL_PATH)/Includes/
 
+# ONLY these files. No Dobby, no thread freezers.
 LOCAL_SRC_FILES := Main.cpp \
     Menu/Jni.cpp \
     Menu/Menu.cpp \
     Menu/Setup.cpp \
     Includes/Utils.cpp \
-    AntiDebug.cpp \
-    UltimateBypass.cpp \
-    MemoryScrubber.cpp \
     KittyMemory/KittyArm64.cpp \
     KittyMemory/KittyScanner.cpp \
     KittyMemory/KittyMemory.cpp \
