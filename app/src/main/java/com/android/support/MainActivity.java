@@ -11,12 +11,16 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import java.io.File;
+import java.io.OutputStreamWriter;
 
 public class MainActivity extends Activity {
     private static final String FF_MAX = "com.dts.freefiremax";
@@ -25,6 +29,7 @@ public class MainActivity extends Activity {
     
     private WindowManager wm;
     private View logoBtn;
+    private View menuPanel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,12 +67,45 @@ public class MainActivity extends Activity {
             public void onClick(View v) {
                 injectBtn.setText("INJECTING...");
                 v.setEnabled(false);
-                showFloatingLogo();
-                launchGame();
+                
+                // Run spoofing in background to prevent main thread freeze
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        spoofProperties();
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                showFloatingLogo();
+                                launchGame();
+                            }
+                        });
+                    }
+                }).start();
             }
         });
         root.addView(injectBtn);
         setContentView(root);
+    }
+
+    private void spoofProperties() {
+        String[] props = {
+            "setprop ro.product.model SM-G998B",
+            "setprop ro.product.brand samsung",
+            "setprop ro.product.manufacturer samsung",
+            "setprop ro.hardware exynos2100",
+            "setprop ro.kernel.qemu 0",
+            "setprop ro.vphonegaga 0"
+        };
+        try {
+            Process process = Runtime.getRuntime().exec("su");
+            OutputStreamWriter writer = new OutputStreamWriter(process.getOutputStream());
+            for (String prop : props) {
+                writer.write(prop + "\n");
+            }
+            writer.close();
+            Thread.sleep(800);
+        } catch (Exception e) {}
     }
 
     private void showFloatingLogo() {
@@ -92,11 +130,57 @@ public class MainActivity extends Activity {
             lp.x = 50;
             lp.y = 300;
 
+            // Click listener to open the menu
+            logo.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (menuPanel == null) {
+                        showMenu();
+                    } else {
+                        hideMenu();
+                    }
+                }
+            });
+
             wm.addView(logo, lp);
             logoBtn = logo;
-        } catch (Throwable t) {
-            Toast.makeText(this, "Overlay failed", Toast.LENGTH_SHORT).show();
-        }
+        } catch (Throwable t) {}
+    }
+
+    private void showMenu() {
+        try {
+            int type = Build.VERSION.SDK_INT >= 26
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
+
+            TextView panel = new TextView(this);
+            panel.setText("CHEAT MENU\n\nAimlock: OFF\nESP: OFF\n\n(Click T to close)");
+            panel.setTextColor(Color.WHITE);
+            panel.setTextSize(18);
+            panel.setGravity(Gravity.CENTER);
+            panel.setBackgroundColor(Color.parseColor("#CC000000"));
+            panel.setPadding(40, 40, 40, 40);
+
+            final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT, 
+                    WindowManager.LayoutParams.WRAP_CONTENT, 
+                    type,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    android.graphics.PixelFormat.TRANSLUCENT);
+            lp.gravity = Gravity.CENTER;
+
+            wm.addView(panel, lp);
+            menuPanel = panel;
+        } catch (Throwable t) {}
+    }
+
+    private void hideMenu() {
+        try {
+            if (menuPanel != null) {
+                wm.removeView(menuPanel);
+                menuPanel = null;
+            }
+        } catch (Throwable t) {}
     }
 
     private void launchGame() {
@@ -109,9 +193,10 @@ public class MainActivity extends Activity {
                     if (i != null) {
                         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(i);
+                        moveTaskToBack(true); 
                     }
                 } catch (Throwable t) {}
             }
         }, 1000);
     }
-}
+                                   }
