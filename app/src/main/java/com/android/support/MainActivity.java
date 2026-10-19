@@ -18,9 +18,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.OutputStreamWriter;
-
 public class MainActivity extends Activity {
     private static final String FF_MAX = "com.dts.freefiremax";
     private static final String FF_NORMAL = "com.dts.freefireth";
@@ -33,7 +30,6 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Check for Overlay Permission first
         if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(this)) {
             try {
                 startActivityForResult(new Intent(
@@ -60,81 +56,18 @@ public class MainActivity extends Activity {
         injectBtn.setTextSize(18);
         injectBtn.setBackgroundColor(Color.parseColor("#FF2200"));
         injectBtn.setTextColor(Color.WHITE);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
-        params.setMargins(0, 50, 0, 0);
-        injectBtn.setLayoutParams(params);
         
         injectBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 injectBtn.setText("INJECTING...");
                 v.setEnabled(false);
-                
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        nukeBanCache();
-                        spoofProperties();
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                showFloatingLogo();
-                                launchGame();
-                            }
-                        });
-                    }
-                }).start();
+                showFloatingLogo();
+                launchGame();
             }
         });
         root.addView(injectBtn);
         setContentView(root);
-    }
-
-    @Override
-    protected void onActivityResult(int req, int res, Intent data) {
-        super.onActivityResult(req, res, data);
-    }
-
-    private void spoofProperties() {
-        String[] props = {
-            "setprop ro.product.model SM-G998B",
-            "setprop ro.product.brand samsung",
-            "setprop ro.product.manufacturer samsung",
-            "setprop ro.hardware exynos2100",
-            "setprop ro.kernel.qemu 0",
-            "setprop ro.vphonegaga 0"
-        };
-        try {
-            Process process = Runtime.getRuntime().exec("su");
-            OutputStreamWriter writer = new OutputStreamWriter(process.getOutputStream());
-            for (String prop : props) {
-                writer.write(prop + "\n");
-            }
-            writer.close();
-            Thread.sleep(1000);
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(MainActivity.this, "Device Spoofed to Samsung S21", Toast.LENGTH_SHORT).show();
-                }
-            });
-        } catch (Exception e) {}
-    }
-
-    private void nukeBanCache() {
-        try {
-            File ffDir = new File("/data/data/" + FF_MAX + "/files");
-            if (ffDir.exists()) {
-                File[] files = ffDir.listFiles();
-                if (files != null) {
-                    for (File f : files) {
-                        if (f.getName().contains("ban") || f.getName().contains("config") || f.getName().contains("device")) {
-                            f.delete();
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {}
     }
 
     private void showFloatingLogo() {
@@ -161,7 +94,6 @@ public class MainActivity extends Activity {
 
             wm.addView(logo, lp);
             logoBtn = logo;
-            Toast.makeText(this, "Panel Injected!", Toast.LENGTH_SHORT).show();
         } catch (Throwable t) {
             Toast.makeText(this, "Overlay failed", Toast.LENGTH_SHORT).show();
         }
@@ -177,7 +109,6 @@ public class MainActivity extends Activity {
                     if (i != null) {
                         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(i);
-                        moveTaskToBack(true); // Move to back so game is in front
                     }
                 } catch (Throwable t) {}
             }
