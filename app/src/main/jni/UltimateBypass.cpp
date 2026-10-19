@@ -12,42 +12,35 @@
 #include "Includes/Logger.h"
 #include "Includes/obfuscate.h"
 
-// Physically delete VPhoneGaGa trace files that ACE scans
-static void cleanVMTraces() {
-    const char* vm_paths[] = {
-        "/system/lib/libvboxsf.so",
-        "/system/lib64/libvboxsf.so",
-        "/system/lib/libqemu-props.so",
-        "/system/lib64/libqemu-props.so",
-        "/system/bin/qemud",
-        "/system/bin/vbox",
-        "/system/bin/vphonegaga",
-        "/data/local/tmp/vphonegaga"
-    };
-    
-    for (int i = 0; i < 8; i++) {
-        if (access(vm_paths[i], F_OK) != -1) {
-            char cmd[256];
-            // Use root to delete the file
-            snprintf(cmd, sizeof(cmd), OBFUSCATE("su -c 'rm -rf %s'"), vm_paths[i]);
-            system(cmd);
-            LOGI(OBFUSCATE("[VM-CLEANER] Deleted: %s"), vm_paths[i]);
-        }
-    }
+static void runSuCommand(const char* cmd) {
+    char full_cmd[512];
+    snprintf(full_cmd, sizeof(full_cmd), "su -c '%s'", cmd);
+    system(full_cmd);
 }
 
-// Hide the "qemu" strings from ACE by clearing the property files
-static void cleanProperties() {
-    char cmd[256];
-    snprintf(cmd, sizeof(cmd), OBFUSCATE("su -c 'resetprop ro.kernel.qemu 0'"));
-    system(cmd);
-    snprintf(cmd, sizeof(cmd), OBFUSCATE("su -c 'resetprop ro.vphonegaga 0'"));
-    system(cmd);
-    snprintf(cmd, sizeof(cmd), OBFUSCATE("su -c 'resetprop ro.product.model SM-G998B'"));
-    system(cmd);
-    snprintf(cmd, sizeof(cmd), OBFUSCATE("su -c 'resetprop ro.product.manufacturer samsung'"));
-    system(cmd);
-    LOGI(OBFUSCATE("[VM-CLEANER] Properties spoofed."));
+static void hideVM() {
+    // 1. Spoof Hardware & Model (PC Logo Bypass)
+    runSuCommand("resetprop ro.product.model SM-G998B");
+    runSuCommand("resetprop ro.product.brand samsung");
+    runSuCommand("resetprop ro.product.manufacturer samsung");
+    runSuCommand("resetprop ro.hardware exynos2100");
+    
+    // 2. Hide QEMU / VM Traces from ACE
+    runSuCommand("resetprop ro.kernel.qemu 0");
+    runSuCommand("resetprop ro.kernel.qemu.gles 0");
+    runSuCommand("resetprop ro.boot.qemu 0");
+    runSuCommand("resetprop ro.vphonegaga 0");
+    runSuCommand("resetprop ro.vbox 0");
+    
+    // 3. Delete obvious VM files (if they exist)
+    runSuCommand("rm -rf /system/lib/libvboxsf.so");
+    runSuCommand("rm -rf /system/lib64/libvboxsf.so");
+    runSuCommand("rm -rf /system/bin/qemud");
+    runSuCommand("rm -rf /system/bin/vbox");
+    
+    // 4. Kill the ACE processes (but not the game)
+    runSuCommand("pkill -f terrors");
+    runSuCommand("pkill -f ACE");
 }
 
 static void nukeOfflineBan() {
@@ -74,14 +67,14 @@ static void nukeOfflineBan() {
 }
 
 static void* guard_thread(void*) {
-    // Wait for VM to fully boot
     sleep(2); 
-    cleanVMTraces();
-    cleanProperties();
+    hideVM();
     nukeOfflineBan();
     
+    // Keep hiding the VM every 10 seconds just in case ACE reloads it
     while (true) {
-        sleep(5); 
+        hideVM();
+        sleep(10); 
     }
     return nullptr;
 }
