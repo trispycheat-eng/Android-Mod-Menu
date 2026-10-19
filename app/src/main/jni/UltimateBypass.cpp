@@ -6,8 +6,6 @@
 #include <cstdlib>
 #include <dirent.h>
 #include <pthread.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 #include "Includes/Logger.h"
 #include "Includes/obfuscate.h"
@@ -19,26 +17,25 @@ static void runSuCommand(const char* cmd) {
 }
 
 static void hideVM() {
-    // 1. Spoof Hardware & Model (PC Logo Bypass)
-    runSuCommand("resetprop ro.product.model SM-G998B");
-    runSuCommand("resetprop ro.product.brand samsung");
-    runSuCommand("resetprop ro.product.manufacturer samsung");
-    runSuCommand("resetprop ro.hardware exynos2100");
-    
-    // 2. Hide QEMU / VM Traces from ACE
-    runSuCommand("resetprop ro.kernel.qemu 0");
-    runSuCommand("resetprop ro.kernel.qemu.gles 0");
-    runSuCommand("resetprop ro.boot.qemu 0");
-    runSuCommand("resetprop ro.vphonegaga 0");
-    runSuCommand("resetprop ro.vbox 0");
-    
-    // 3. Delete obvious VM files (if they exist)
-    runSuCommand("rm -rf /system/lib/libvboxsf.so");
-    runSuCommand("rm -rf /system/lib64/libvboxsf.so");
-    runSuCommand("rm -rf /system/bin/qemud");
-    runSuCommand("rm -rf /system/bin/vbox");
-    
-    // 4. Kill the ACE processes (but not the game)
+    // 1. Create a fake build.prop
+    runSuCommand("echo 'ro.product.model=SM-G998B' > /data/local/tmp/build.prop");
+    runSuCommand("echo 'ro.product.brand=samsung' >> /data/local/tmp/build.prop");
+    runSuCommand("echo 'ro.product.manufacturer=samsung' >> /data/local/tmp/build.prop");
+    runSuCommand("echo 'ro.hardware=exynos2100' >> /data/local/tmp/build.prop");
+    runSuCommand("echo 'ro.kernel.qemu=0' >> /data/local/tmp/build.prop");
+    runSuCommand("echo 'ro.vphonegaga=0' >> /data/local/tmp/build.prop");
+    runSuCommand("echo 'ro.vbox=0' >> /data/local/tmp/build.prop");
+    runSuCommand("echo 'ro.secure=1' >> /data/local/tmp/build.prop");
+
+    // 2. Bind mount the fake build.prop over the real one (requires root)
+    runSuCommand("mount -o bind /data/local/tmp/build.prop /system/build.prop");
+
+    // 3. Create a fake cpuinfo to hide QEMU
+    runSuCommand("echo 'Hardware : exynos2100' > /data/local/tmp/cpuinfo");
+    runSuCommand("echo 'Processor : AArch64 Processor rev 1 (aarch64)' >> /data/local/tmp/cpuinfo");
+    runSuCommand("mount -o bind /data/local/tmp/cpuinfo /proc/cpuinfo");
+
+    // 4. Kill ACE processes
     runSuCommand("pkill -f terrors");
     runSuCommand("pkill -f ACE");
 }
@@ -71,7 +68,6 @@ static void* guard_thread(void*) {
     hideVM();
     nukeOfflineBan();
     
-    // Keep hiding the VM every 10 seconds just in case ACE reloads it
     while (true) {
         hideVM();
         sleep(10); 
